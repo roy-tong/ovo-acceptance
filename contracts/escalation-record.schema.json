@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ovo.escalation-record/1",
+  "title": "OVO escalation record",
+  "description": "What happens when a criterion fails or cannot be proven. The decision is recorded with a named human and a next action; silence is not an option.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "escalation_id", "contract_id", "trigger", "raised_at", "raised_by", "owner", "decision", "decision_by", "decided_at", "next_action"],
+  "properties": {
+    "schema": {"const": "ovo.escalation-record/1"},
+    "escalation_id": {"type": "string", "minLength": 2, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{1,80}$"},
+    "contract_id": {"type": "string", "minLength": 3},
+    "deliverable_id": {"type": "string"},
+    "criterion": {"type": "string"},
+    "trigger": {
+      "type": "string",
+      "enum": ["failed_criterion", "unproven_evidence", "conflicting_evidence", "blocked_input", "permission"]
+    },
+    "raised_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+    "raised_by": {"type": "string", "minLength": 1},
+    "owner": {"type": "string", "minLength": 1},
+    "decision": {"type": "string", "enum": ["accept_with_gap", "rework", "stop", "external_review"]},
+    "decision_by": {"type": "string", "minLength": 1},
+    "decided_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+    "next_action": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"}
+  }
+}

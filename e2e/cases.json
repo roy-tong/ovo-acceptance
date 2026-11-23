@@ -1,0 +1,81 @@
+{
+  "schema": "ovo.agent-e2e-cases/1",
+  "version": "2026-11-22",
+  "status": "NOT_RUN",
+  "evidence_boundary": "Existing 2026-11-20 sessions used synthetic fixtures and dry-run external actions. They remain useful defect evidence but do not complete these real-task cases.",
+  "run_rule": "Run every case in two fresh sessions: product and baseline. Give only the natural-language intent and user-owned inputs; do not provide commands, expected tool calls or expected answers.",
+  "cases": [
+    {
+      "case_id": "A-E2E-01",
+      "product": "askovo",
+      "intent": "我有个新产品想法，帮我验证是否值得做",
+      "required_result": "证据、反证、机会判断、建议及风险",
+      "required_inputs": ["真实产品想法与决策背景", "用户合法持有且授权使用的研究材料"],
+      "external_receipt_required": false
+    },
+    {
+      "case_id": "A-E2E-02",
+      "product": "askovo",
+      "intent": "已有产品留存差，帮我找原因和优先需求",
+      "required_result": "可信问题归因、需求优先级、决策依据",
+      "required_inputs": ["真实留存现象与时间窗", "授权反馈、访谈或使用记录"],
+      "external_receipt_required": false
+    },
+    {
+      "case_id": "A-E2E-03",
+      "product": "askovo",
+      "intent": "帮我找到竞争格局中的机会",
+      "required_result": "竞品证据、差异化机会及未验证假设",
+      "required_inputs": ["真实产品与目标市场", "合法取得的竞品材料"],
+      "external_receipt_required": false
+    },
+    {
+      "case_id": "G-E2E-01",
+      "product": "growovo",
+      "intent": "我刚发布开源产品，帮我找到前十个愿意交流的用户",
+      "required_result": "目标人群、合规触达、真实回复记录",
+      "required_inputs": ["真实开源产品", "明确授权的账号与触达范围"],
+      "external_receipt_required": true
+    },
+    {
+      "case_id": "G-E2E-02",
+      "product": "growovo",
+      "intent": "帮我持续运营已有社媒账号",
+      "required_result": "可审计的内容与互动工作流、效果读数",
+      "required_inputs": ["真实账号与授权边界", "历史内容和已有效果读数"],
+      "external_receipt_required": true
+    },
+    {
+      "case_id": "G-E2E-03",
+      "product": "growovo",
+      "intent": "帮我复盘推广为什么没带来用户",
+      "required_result": "漏斗问题、归因边界、下一轮实验建议",
+      "required_inputs": ["真实活动账本与平台回执", "真实回复、激活或成交记录；缺失保持未知"],
+      "external_receipt_required": true
+    },
+    {
+      "case_id": "V-E2E-01",
+      "product": "verovo",
+      "intent": "检查这张供应商账单是否有异常",
+      "required_result": "可重算的费用差异和证据",
+      "required_inputs": ["授权且脱敏的真实账单", "计费规则与真实用量记录"],
+      "external_receipt_required": false
+    },
+    {
+      "case_id": "V-E2E-02",
+      "product": "verovo",
+      "intent": "检查这项 AI 服务是否达到交付标准",
+      "required_result": "逐项验收结论、缺口和复核路径",
+      "required_inputs": ["真实采购或验收要求", "授权交付记录与结果证据"],
+      "external_receipt_required": false
+    },
+    {
+      "case_id": "V-E2E-03",
+      "product": "verovo",
+      "intent": "计算 Agent 任务的真实成本和价值",
+      "required_result": "成本归集、成功分母、已验证价值及未知项",
+      "required_inputs": ["真实任务、用量和费用记录", "经负责人确认的任务结果与价值证据"],
+      "external_receipt_required": false
+    }
+  ]
+}

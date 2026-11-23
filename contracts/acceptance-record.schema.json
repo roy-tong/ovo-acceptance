@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ovo.acceptance-record/1",
+  "title": "OVO acceptance record",
+  "description": "One criterion checked by one named person. PASS requires resolvable evidence; FAIL requires an escalation; UNPROVEN is a verdict, not a pass.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "acceptance_id", "contract_id", "trace_id", "deliverable_id", "criterion", "verdict", "checked_by", "checked_at"],
+  "properties": {
+    "schema": {"const": "ovo.acceptance-record/1"},
+    "acceptance_id": {"type": "string", "minLength": 2, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{1,80}$"},
+    "contract_id": {"type": "string", "minLength": 3},
+    "trace_id": {"type": "string", "minLength": 3},
+    "deliverable_id": {"type": "string", "minLength": 2},
+    "criterion": {"type": "string", "minLength": 1},
+    "verdict": {"type": "string", "enum": ["PASS", "FAIL", "UNPROVEN", "NOT_APPLICABLE"]},
+    "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "checked_by": {"type": "string", "minLength": 1},
+    "checked_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+    "notes": {"type": "string"}
+  }
+}

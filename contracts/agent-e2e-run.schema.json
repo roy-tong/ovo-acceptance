@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ovo.agent-e2e-run/1",
+  "title": "OVO independent Agent end-to-end run",
+  "description": "One fresh-session product or general-Agent baseline run. A real success requires authorized real inputs, inspectable execution evidence and named human acceptance; synthetic and demo runs can document other outcomes but cannot be promoted to real success.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "run_id", "case_id", "arm", "product", "input_class",
+    "agent", "fresh_session", "natural_language_task", "solution_hints_provided",
+    "started_at", "finished_at", "outcome", "external_result_observed",
+    "evidence", "human_review", "defect_ids"
+  ],
+  "properties": {
+    "schema": {"const": "ovo.agent-e2e-run/1"},
+    "run_id": {"type": "string", "minLength": 3, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,80}$"},
+    "case_id": {"type": "string", "minLength": 3, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,80}$"},
+    "arm": {"type": "string", "enum": ["product", "baseline"]},
+    "product": {"type": "string", "enum": ["askovo", "growovo", "verovo"]},
+    "input_class": {"type": "string", "enum": ["real_authorized", "synthetic", "demo"]},
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "model", "session_ref"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "session_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "fresh_session": {"const": true},
+    "natural_language_task": {"const": true},
+    "solution_hints_provided": {"const": false},
+    "started_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+    "finished_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+    "outcome": {"type": "string", "enum": ["REAL_SUCCESS", "JUSTIFIED_REFUSAL", "HUMAN_TAKEOVER", "INCORRECT_DELIVERY"]},
+    "external_result_observed": {"type": "boolean"},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_transcript_ref", "tool_trace_ref", "deliverable_refs", "human_review_ref"],
+      "properties": {
+        "session_transcript_ref": {"type": "string", "minLength": 1},
+        "tool_trace_ref": {"type": "string", "minLength": 1},
+        "deliverable_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "external_receipt_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "human_review_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_by", "reviewed_at", "accepted", "minutes"],
+      "properties": {
+        "reviewed_by": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"},
+        "accepted": {"type": "boolean"},
+        "minutes": {"type": "number", "minimum": 0}
+      }
+    },
+    "defect_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "regression_of": {"type": "string", "minLength": 3},
+    "notes": {"type": "string"}
+  }
+}

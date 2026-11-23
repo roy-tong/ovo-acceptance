@@ -1,0 +1,34 @@
+{
+  "schema": "ovo.agent-e2e-run/1",
+  "run_id": "example-a-e2e-01-refusal",
+  "case_id": "A-E2E-01",
+  "arm": "product",
+  "product": "askovo",
+  "input_class": "synthetic",
+  "agent": {
+    "host": "example-host",
+    "model": "example-model",
+    "session_ref": "examples/session-transcript.md"
+  },
+  "fresh_session": true,
+  "natural_language_task": true,
+  "solution_hints_provided": false,
+  "started_at": "2026-11-22T10:00:00+08:00",
+  "finished_at": "2026-11-22T10:05:00+08:00",
+  "outcome": "JUSTIFIED_REFUSAL",
+  "external_result_observed": false,
+  "evidence": {
+    "session_transcript_ref": "examples/session-transcript.md",
+    "tool_trace_ref": "examples/tool-trace.jsonl",
+    "deliverable_refs": [],
+    "human_review_ref": "examples/human-review.md"
+  },
+  "human_review": {
+    "reviewed_by": "example-reviewer",
+    "reviewed_at": "2026-11-22T10:06:00+08:00",
+    "accepted": false,
+    "minutes": 3
+  },
+  "defect_ids": [],
+  "notes": "Synthetic contract example only: the run correctly refused to claim a real business result without authorized real inputs."
+}

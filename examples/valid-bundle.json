@@ -1,0 +1,76 @@
+{
+  "schema": "ovo.acceptance-bundle/1",
+  "task_contract": {
+    "schema": "ovo.task-contract/1",
+    "contract_id": "askovo-2026-11-22-001",
+    "version": "1",
+    "created_at": "2026-11-22T09:00:00+08:00",
+    "owner": "roy",
+    "product": "askovo",
+    "goal": "把一次产品行为观察整理成可复核的研究证据",
+    "inputs": [
+      {"ref": "study/01-sources/observations.jsonl", "kind": "observation_store"}
+    ],
+    "deliverables": [
+      {
+        "id": "d1",
+        "description": "一条带范围约束的产品行为观察",
+        "acceptance_criteria": ["证据可追溯到账本"],
+        "out_of_scope": ["把单次观察写成通用产品能力"]
+      }
+    ],
+    "approved_by": "roy"
+  },
+  "execution_trace": {
+    "schema": "ovo.execution-trace/1",
+    "trace_id": "trace-2026-11-22-001",
+    "contract_id": "askovo-2026-11-22-001",
+    "started_at": "2026-11-22T10:00:00+08:00",
+    "finished_at": "2026-11-22T10:05:00+08:00",
+    "actor": "askovo observation cli",
+    "steps": [
+      {
+        "step_id": "s1",
+        "action": "record_observation",
+        "started_at": "2026-11-22T10:00:00+08:00",
+        "ended_at": "2026-11-22T10:01:00+08:00",
+        "status": "ok",
+        "tool": "askovo observation record",
+        "output_ref": "store/obs-001.json"
+      }
+    ]
+  },
+  "evidence_ledger": {
+    "schema": "ovo.evidence-ledger/1",
+    "ledger_id": "ledger-2026-11-22-001",
+    "contract_id": "askovo-2026-11-22-001",
+    "entries": [
+      {
+        "evidence_id": "e1",
+        "kind": "source_document",
+        "source_ref": "store/obs-001.json",
+        "source_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-22T10:00:00+08:00",
+        "collected_by": "roy",
+        "trust": "observed",
+        "notes": "原始观察文件，按字节哈希登记"
+      }
+    ]
+  },
+  "acceptances": [
+    {
+      "schema": "ovo.acceptance-record/1",
+      "acceptance_id": "acc-001",
+      "contract_id": "askovo-2026-11-22-001",
+      "trace_id": "trace-2026-11-22-001",
+      "deliverable_id": "d1",
+      "criterion": "证据可追溯到账本",
+      "verdict": "PASS",
+      "evidence_refs": ["e1"],
+      "checked_by": "roy",
+      "checked_at": "2026-11-22T10:10:00+08:00",
+      "notes": "哈希与源文件一致"
+    }
+  ],
+  "escalations": []
+}

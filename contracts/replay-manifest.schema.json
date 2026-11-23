@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ovo.replay-manifest/1",
+  "type": "object",
+  "required": ["schema", "contract_id", "status", "commands", "inputs", "missing"],
+  "properties": {
+    "schema": {"const": "ovo.replay-manifest/1"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["AVAILABLE", "UNAVAILABLE"]},
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "argv"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "argv": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        }
+      }
+    },
+    "inputs": {"type": "array"},
+    "missing": {"type": "array", "items": {"type": "string"}}
+  }
+}
