@@ -1,0 +1,44 @@
+{
+  "schema": "ovo.delegated-task/1",
+  "task_id": "task-demo-0001",
+  "product": "growovo",
+  "business_owner": {
+    "id": "owner-demo",
+    "authority": "campaign-owner"
+  },
+  "payer": {
+    "id": "owner-demo",
+    "authority": "budget-owner"
+  },
+  "liability_owner": {
+    "id": "owner-demo",
+    "authority": "risk-owner"
+  },
+  "delegator": {
+    "type": "host",
+    "client_id": "demo-agent-session"
+  },
+  "goal": {
+    "type": "authorized_campaign_batch",
+    "definition_ref": "local://demo/goal.json"
+  },
+  "scope": {
+    "workspace_id": "demo-workspace",
+    "account_refs": ["demo-account"],
+    "period": "2026-11-01/2026-11-30"
+  },
+  "budgets": {
+    "max_external_actions": 3,
+    "max_spend": 0,
+    "currency": "USD"
+  },
+  "authorization_ref": "local://demo/authorization.json",
+  "idempotency_key": "demo-workspace:demo-goal:2026-11",
+  "requested_artifacts": ["execution-ledger", "readback-receipts"],
+  "acceptance": {
+    "reviewer_ref": "owner-demo",
+    "criteria_ref": "local://demo/criteria.json"
+  },
+  "state": "ready",
+  "notes": "Synthetic example; no external action is executed."
+}

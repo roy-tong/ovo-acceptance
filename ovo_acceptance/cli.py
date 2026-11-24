@@ -1,8 +1,12 @@
 """Command line for the OVO shared acceptance layer.
 
-  python3 -m ovo_acceptance validate FILE [--kind task|trace|evidence|acceptance|escalation|agent_e2e]
+  python3 -m ovo_acceptance validate FILE [--kind task|trace|evidence|acceptance|escalation|agent_e2e|result_receipt|delegated_task|service_capability]
   python3 -m ovo_acceptance bundle DIR_OR_FILE
   python3 -m ovo_acceptance publish DIR_OR_FILE --out PUBLIC_DIR --classification synthetic --by NAME
+  python3 -m ovo_acceptance vocabulary [--json]
+  python3 -m ovo_acceptance adapter --proof DIR --out FILE [--by NAME]
+  python3 -m ovo_acceptance adapter --product askovo|growovo|verovo --out FILE
+  python3 -m ovo_acceptance case list|show|incidents|index|validate|replay|verify
 
 Exit codes: 0 accepted, 1 validation failed, 2 usage or unreadable input.
 """
@@ -81,7 +85,28 @@ def _cmd_bundle(args: argparse.Namespace) -> int:
 
 
 def _cmd_proof(args: argparse.Namespace) -> int:
-    result = proof_mod.validate_proof_bundle(Path(args.path))
+    root = Path(args.path)
+    if not root.is_dir():
+        errors = [{"code": "USAGE", "path": str(root),
+                   "message": "proof 只接受目录；传 bundle 文件本身或不存在路径无法校验"}]
+        if args.json:
+            print(json.dumps({"status": "INVALID", "errors": errors},
+                             ensure_ascii=False, indent=2))
+        else:
+            print("证明校验：INVALID（用法错误）")
+            _print_errors(errors)
+        return 2
+    if not (root / "bundle.json").is_file():
+        errors = [{"code": "USAGE", "path": str(root / "bundle.json"),
+                   "message": "目录必须包含 bundle.json（proof 只认 bundle.json，不认 acceptance-bundle.json）"}]
+        if args.json:
+            print(json.dumps({"status": "INVALID", "errors": errors},
+                             ensure_ascii=False, indent=2))
+        else:
+            print("证明校验：INVALID（用法错误）")
+            _print_errors(errors)
+        return 2
+    result = proof_mod.validate_proof_bundle(root)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
@@ -94,6 +119,57 @@ def _cmd_proof(args: argparse.Namespace) -> int:
         if result["errors"]:
             _print_errors(result["errors"])
     return 0 if result["ok"] else 1
+
+
+def _cmd_vocabulary(args: argparse.Namespace) -> int:
+    from . import vocabulary
+    doc = vocabulary.load_vocabulary()
+    errors = vocabulary.validate_vocabulary(doc)
+    lifecycle = doc.get("lifecycle") or {}
+    payload = {
+        "ok": not errors,
+        "errors": errors,
+        "products": sorted((doc.get("product_identifiers") or {}).keys()),
+        "lifecycle_states": len(lifecycle.get("canonical") or []),
+        "verdict_sources": sorted((doc.get("verdicts") or {}).get("sources", {}).keys()),
+    }
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print("词汇映射：%s" % ("通过" if not errors else "失败"))
+        print("  产品：%s" % ", ".join(payload["products"]))
+        print("  生命周期状态：%d" % payload["lifecycle_states"])
+        print("  判决来源：%s" % ", ".join(payload["verdict_sources"]))
+        for item in errors:
+            print("  - %s" % item)
+    return 0 if not errors else 1
+
+
+def _cmd_adapter(args: argparse.Namespace) -> int:
+    from . import adapters
+    if bool(args.proof) == bool(args.product):
+        print("ERROR: pass exactly one of --proof or --product", file=sys.stderr)
+        return 2
+    try:
+        if args.proof:
+            document = adapters.receipt_from_proof_bundle(
+                args.proof, reviewed_by=args.by)
+            kind = "result_receipt"
+        else:
+            document = adapters.capability_descriptor(args.product)
+            kind = "service_capability"
+    except (ValueError, OSError, model.AcceptanceError) as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+                   encoding="utf-8")
+    if args.json:
+        print(json.dumps(document, ensure_ascii=False, indent=2))
+    else:
+        print("已写入 %s（%s）" % (out, kind))
+    return 0
 
 
 def _cmd_publish(args: argparse.Namespace) -> int:
@@ -120,16 +196,32 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("file")
     validate_parser.add_argument(
         "--kind", default="",
-        choices=["", "task", "trace", "evidence", "acceptance", "escalation", "agent_e2e"],
+        choices=["", "task", "trace", "evidence", "acceptance", "escalation", "agent_e2e",
+                 "result_receipt", "delegated_task", "service_capability"],
         help="默认按文档的 schema 字段自动识别")
     validate_parser.add_argument("--json", action="store_true")
     validate_parser.set_defaults(func=_cmd_validate)
 
     bundle_parser = sub.add_parser(
-        "bundle", help="校验一个验收包并给出 PASS/PASS_WITH_GAP/BLOCKED/FAIL")
+        "bundle", help="校验一个验收包并给出 PASS/PASS_WITH_GAP/BLOCKED/FAIL/INVALID")
     bundle_parser.add_argument("path", help="包含 bundle.json 的目录，或 bundle 文件")
     bundle_parser.add_argument("--json", action="store_true")
     bundle_parser.set_defaults(func=_cmd_bundle)
+
+    vocabulary_parser = sub.add_parser(
+        "vocabulary", help="校验家族词汇映射表并列出产品、生命周期状态与判决来源")
+    vocabulary_parser.add_argument("--json", action="store_true")
+    vocabulary_parser.set_defaults(func=_cmd_vocabulary)
+
+    adapter_parser = sub.add_parser(
+        "adapter", help="从 Proof Bundle 生成 C-01 结果凭证，或输出产品能力描述")
+    adapter_parser.add_argument("--proof", default="", help="Proof Bundle 目录")
+    adapter_parser.add_argument("--product", default="",
+                                choices=["", "askovo", "growovo", "verovo"])
+    adapter_parser.add_argument("--out", required=True, help="输出 JSON 文件")
+    adapter_parser.add_argument("--by", default="", help="具名审阅人（可选）")
+    adapter_parser.add_argument("--json", action="store_true")
+    adapter_parser.set_defaults(func=_cmd_adapter)
 
     proof_parser = sub.add_parser(
         "proof", help="校验可携带 Proof Bundle 的投影、五态、证明等级与重放清单")
@@ -152,8 +244,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: List[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == "case":
+        from . import casebook
+        return int(casebook.main(arguments[1:]))
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     try:
         return int(args.func(args))
     except model.AcceptanceError as exc:

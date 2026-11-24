@@ -1,0 +1,33 @@
+{
+  "schema": "ovo.result-receipt/1",
+  "receipt_id": "rr-demo-0001",
+  "origin_product": "growovo",
+  "origin_version": "0.20.0",
+  "task_id": "task-demo-0001",
+  "run_id": "run-demo-0001",
+  "subject_id": "subject-demo-0001",
+  "event_type": "external_action_observed",
+  "occurred_at": "2026-11-24T09:00:00Z",
+  "observed_at": "2026-11-24T09:00:05Z",
+  "source_ref": "local://demo/operations.jsonl#1",
+  "source_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "assertion": "One authorized action was observed by an independent readback.",
+  "qualification": {
+    "layer": "execution",
+    "counts_as": "observed_action"
+  },
+  "verification_state": "independently_observed",
+  "human_review": {
+    "reviewed_by": "demo-reviewer",
+    "reviewed_at": "2026-11-24T09:10:00Z",
+    "accepted": true,
+    "notes": "Readback matched the operation ledger."
+  },
+  "scope": {
+    "workspace_id": "demo-workspace",
+    "platform": "demo",
+    "region": "local"
+  },
+  "causality": "not_claimed",
+  "notes": "Synthetic example; not a business outcome."
+}

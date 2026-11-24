@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ovo.service-capability/1",
+  "title": "OVO service capability",
+  "description": "Machine-readable capability description for an external agent: what task it fits, what it needs, what it produces, its side-effect level, what needs human approval, whether it can resume, refusal examples and evidence-backed maturity. Registration alone is never production proof.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "service", "use_case", "supported_inputs", "outputs",
+    "side_effect_level", "requires_human_approval", "can_resume",
+    "refusal_examples", "maturity"
+  ],
+  "properties": {
+    "schema": {"const": "ovo.service-capability/1"},
+    "service": {"type": "string", "minLength": 1},
+    "use_case": {"type": "string", "minLength": 1},
+    "supported_inputs": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "outputs": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "side_effect_level": {"type": "string", "enum": ["none", "read_external", "write_external"]},
+    "requires_human_approval": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "can_resume": {"type": "boolean"},
+    "refusal_examples": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "maturity": {
+      "type": "string",
+      "enum": ["implementation_pending", "synthetic_verified", "offline_verified", "production_proven"]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "notes": {"type": "string"}
+  }
+}

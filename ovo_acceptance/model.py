@@ -28,6 +28,9 @@ LEDGER_SCHEMA = "ovo.evidence-ledger/1"
 ACCEPTANCE_SCHEMA = "ovo.acceptance-record/1"
 ESCALATION_SCHEMA = "ovo.escalation-record/1"
 AGENT_E2E_SCHEMA = "ovo.agent-e2e-run/1"
+RESULT_RECEIPT_SCHEMA = "ovo.result-receipt/1"
+DELEGATED_TASK_SCHEMA = "ovo.delegated-task/1"
+SERVICE_CAPABILITY_SCHEMA = "ovo.service-capability/1"
 
 KIND_BY_SCHEMA = {
     TASK_SCHEMA: "task",
@@ -36,6 +39,9 @@ KIND_BY_SCHEMA = {
     ACCEPTANCE_SCHEMA: "acceptance",
     ESCALATION_SCHEMA: "escalation",
     AGENT_E2E_SCHEMA: "agent_e2e",
+    RESULT_RECEIPT_SCHEMA: "result_receipt",
+    DELEGATED_TASK_SCHEMA: "delegated_task",
+    SERVICE_CAPABILITY_SCHEMA: "service_capability",
 }
 SCHEMA_BY_KIND = {kind: schema for schema, kind in KIND_BY_SCHEMA.items()}
 
@@ -46,6 +52,9 @@ SCHEMA_FILES = {
     "acceptance": "acceptance-record.schema.json",
     "escalation": "escalation-record.schema.json",
     "agent_e2e": "agent-e2e-run.schema.json",
+    "result_receipt": "result-receipt.schema.json",
+    "delegated_task": "delegated-task.schema.json",
+    "service_capability": "service-capability.schema.json",
 }
 
 VERDICTS = ("PASS", "FAIL", "UNPROVEN", "NOT_APPLICABLE")
@@ -59,7 +68,8 @@ DATETIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$")
 HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
-_CONTRACTS_DIR = Path(__file__).resolve().parent.parent / "contracts"
+_SOURCE_CONTRACTS_DIR = Path(__file__).resolve().parent.parent / "contracts"
+_CONTRACTS_DIR = _SOURCE_CONTRACTS_DIR if _SOURCE_CONTRACTS_DIR.is_dir() else Path(__file__).resolve().parent / "contracts"
 _SCHEMA_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
@@ -445,6 +455,52 @@ def validate_agent_e2e_run(doc: Dict[str, Any]) -> List[Dict[str, str]]:
     return errors
 
 
+def validate_result_receipt(doc: Dict[str, Any]) -> List[Dict[str, str]]:
+    errors = _schema_errors(doc, "result_receipt")
+    if doc.get("schema") != RESULT_RECEIPT_SCHEMA:
+        return errors
+    occurred = _parse_instant(doc.get("occurred_at", ""))
+    observed = _parse_instant(doc.get("observed_at", ""))
+    if occurred and observed and observed < occurred:
+        errors.append(_error("TIME_ORDER", "observed_at",
+                             "observed_at is earlier than occurred_at"))
+    if doc.get("verification_state") == "verified_business_outcome":
+        review = doc.get("human_review") or {}
+        if not isinstance(review, dict) or review.get("accepted") is not True:
+            errors.append(_error(
+                "BUSINESS_OUTCOME_WITHOUT_REVIEW", "human_review.accepted",
+                "verified_business_outcome needs a named human acceptance; "
+                "an observed receipt is not a business outcome"))
+    return errors
+
+
+def validate_delegated_task(doc: Dict[str, Any]) -> List[Dict[str, str]]:
+    errors = _schema_errors(doc, "delegated_task")
+    if doc.get("schema") != DELEGATED_TASK_SCHEMA:
+        return errors
+    authorization = str(doc.get("authorization_ref") or "").strip()
+    state = doc.get("state")
+    if not authorization and state not in (None, "draft", "awaiting_authorization"):
+        errors.append(_error(
+            "AUTH_STATE_CONFLICT", "state",
+            "an empty authorization_ref keeps the task in draft or "
+            "awaiting_authorization, not %r" % state))
+    return errors
+
+
+def validate_service_capability(doc: Dict[str, Any]) -> List[Dict[str, str]]:
+    errors = _schema_errors(doc, "service_capability")
+    if doc.get("schema") != SERVICE_CAPABILITY_SCHEMA:
+        return errors
+    if doc.get("maturity") == "production_proven" \
+            and not doc.get("evidence_refs"):
+        errors.append(_error(
+            "MATURITY_WITHOUT_EVIDENCE", "evidence_refs",
+            "production_proven requires evidence_refs; registration alone "
+            "is not production proof"))
+    return errors
+
+
 VALIDATORS = {
     "task": validate_task_contract,
     "trace": validate_execution_trace,
@@ -452,6 +508,9 @@ VALIDATORS = {
     "acceptance": validate_acceptance_record,
     "escalation": validate_escalation_record,
     "agent_e2e": validate_agent_e2e_run,
+    "result_receipt": validate_result_receipt,
+    "delegated_task": validate_delegated_task,
+    "service_capability": validate_service_capability,
 }
 
 
@@ -762,12 +821,15 @@ def observation_scope_note(entry: Dict[str, Any]) -> str:
 __all__ = [
     "BUNDLE_SCHEMA", "TASK_SCHEMA", "TRACE_SCHEMA", "LEDGER_SCHEMA",
     "ACCEPTANCE_SCHEMA", "ESCALATION_SCHEMA", "AGENT_E2E_SCHEMA",
+    "RESULT_RECEIPT_SCHEMA", "DELEGATED_TASK_SCHEMA", "SERVICE_CAPABILITY_SCHEMA",
     "KIND_BY_SCHEMA", "SCHEMA_BY_KIND",
     "VERDICTS", "DECISIONS", "TRIGGERS", "GENERALIZATIONS", "CONTEXT_FIELDS",
     "AcceptanceError", "load_json", "load_schema", "detect_kind",
     "validate_task_contract", "validate_execution_trace",
     "validate_evidence_ledger", "validate_acceptance_record",
     "validate_escalation_record", "validate_agent_e2e_run",
+    "validate_result_receipt", "validate_delegated_task",
+    "validate_service_capability",
     "validate_document", "validate_bundle",
     "observation_scope_note",
 ]

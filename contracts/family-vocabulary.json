@@ -1,0 +1,134 @@
+{
+  "schema": "ovo.family-vocabulary/1",
+  "updated_at": "2026-11-24",
+  "note": "Declared mapping, not a runtime replacement. Product-internal states stay canonical; this file tells a family reviewer how to read them without inventing a second truth.",
+  "product_identifiers": {
+    "askovo": {
+      "display": "Askovo",
+      "aliases": ["askovo", "Askovo"]
+    },
+    "growovo": {
+      "display": "Growovo",
+      "aliases": ["growovo", "Growovo"]
+    },
+    "verovo": {
+      "display": "Verovo",
+      "aliases": ["verovo", "Verovo", "AgentMeasure", "buyer-ledger"]
+    },
+    "family": {
+      "display": "family",
+      "aliases": ["family", "Cross", "ovo"]
+    }
+  },
+  "lifecycle": {
+    "canonical": ["created", "awaiting_authorization", "ready", "running", "needs_input", "needs_review", "paused", "cancelled", "partial", "delivered", "failed"],
+    "ux": ["NEEDS_INPUT", "READY", "NEEDS_REVIEW", "BLOCKED", "PARTIAL", "DELIVERED"],
+    "products": {
+      "askovo": {
+        "created": "created",
+        "scoped": "awaiting_authorization",
+        "collecting": "running",
+        "analyzed": "running",
+        "review_required": "needs_review",
+        "brief_ready": "ready",
+        "delivered": "delivered",
+        "needs_input": "needs_input",
+        "blocked": "failed",
+        "interrupted": "paused",
+        "cancelled": "cancelled"
+      },
+      "growovo": {
+        "draft": "created",
+        "ready_to_arm": "awaiting_authorization",
+        "active": "running",
+        "needs_attention": "needs_review",
+        "paused": "paused",
+        "completed": "delivered",
+        "cancelled": "cancelled"
+      },
+      "verovo": {
+        "created": "created",
+        "needs_input": "needs_input",
+        "needs_review": "needs_review",
+        "ready": "ready",
+        "delivered": "delivered"
+      }
+    },
+    "notes": {
+      "askovo.blocked": "C-01 lifecycle has no blocked state; read as failed with a blocked_reason, or needs_review when work can continue.",
+      "askovo.interrupted": "Paused, not failed; resume from the same task id.",
+      "growovo.ready_to_arm": "Plan is ready but the human arm gate is still closed.",
+      "verovo": "Verovo close states are a subset; UNKNOWN/UNOBSERVABLE are evidence states, not lifecycle states."
+    }
+  },
+  "verdicts": {
+    "canonical": ["PASS", "PASS_WITH_GAP", "FAIL", "BLOCKED", "UNPROVEN", "EXPIRED", "NOT_APPLICABLE"],
+    "sources": {
+      "acceptance_record": {
+        "PASS": "PASS",
+        "FAIL": "FAIL",
+        "UNPROVEN": "UNPROVEN",
+        "NOT_APPLICABLE": "NOT_APPLICABLE"
+      },
+      "proof": {
+        "PASS": "PASS",
+        "FAIL": "FAIL",
+        "UNCHECKED": "UNPROVEN",
+        "INDETERMINATE": "UNPROVEN",
+        "EXPIRED": "EXPIRED"
+      },
+      "bundle": {
+        "PASS": "PASS",
+        "PASS_WITH_GAP": "PASS_WITH_GAP",
+        "BLOCKED": "BLOCKED",
+        "FAIL": "FAIL",
+        "INVALID": "FAIL"
+      },
+      "case_replay": {
+        "passed": "PASS",
+        "failed": "FAIL",
+        "blocked": "BLOCKED"
+      },
+      "verovo_review": {
+        "PASS": "PASS",
+        "FAIL": "FAIL",
+        "UNPROVABLE": "UNPROVEN",
+        "NOT_REVIEWED": "NOT_APPLICABLE"
+      },
+      "verovo_healthcheck": {
+        "PASS": "PASS",
+        "FINDING": "FAIL",
+        "UNPROVABLE": "UNPROVEN"
+      },
+      "escalation_decision": {
+        "accept_with_gap": "PASS_WITH_GAP",
+        "rework": "BLOCKED",
+        "stop": "FAIL",
+        "external_review": "BLOCKED"
+      }
+    },
+    "note": "UNPROVEN (not accepted), UNPROVABLE (evidence seen but undecidable), UNCHECKED (not inspected) and INDETERMINATE (inspected but undecidable) all map to the family UNPROVEN bucket; they are not interchangeable in the source product."
+  },
+  "evidence": {
+    "sources": {
+      "askovo_e_level": ["E0", "E1", "E2", "E3", "E4+", "E4-", "E5"],
+      "acceptance_trust": ["observed", "reported", "derived"],
+      "acceptance_generalization": ["single_case", "repeated", "multi_context"],
+      "verovo_observer_grade": ["self_attested", "affected_party", "third_party_corroborated"]
+    },
+    "note": "These axes are not interchangeable: E-level is source strength, trust is collection mode, observer_grade is who attested."
+  },
+  "layers": {
+    "case_outcome": ["artifact", "execution", "business", "adoption"],
+    "growovo_outcome": ["L1_execution", "L2_engagement", "L3_activation"],
+    "askovo_states": ["delivery", "outcome", "causal"],
+    "verovo_conclusions": ["financial", "control", "delivery", "value"],
+    "proof_levels": ["P0", "P1", "P2", "P3", "P4"],
+    "note": "No layer substitutes for another; map explicitly when crossing artifacts."
+  },
+  "namespaces": {
+    "P0": ["family phase P0 (acceptance layer)", "proof level P0 (execution receipt)", "work-order priority P0", "page/increment P0"],
+    "G": ["VCF gate G1-G6", "Growovo work order G-01..G-16", "review item G-05..G-11", "case id G-LAUNCH-01"],
+    "note": "Always write the namespace, e.g. 'VCF G3', 'Growovo G-05', 'proof P2'."
+  }
+}

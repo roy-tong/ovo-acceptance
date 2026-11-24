@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "ovo.delegated-task/1",
+  "title": "OVO delegated task",
+  "description": "One business task delegated to a product or agent. A self-declared business_owner or authorization_ref is not proof of authorization; an empty authorization keeps the task in draft/awaiting_authorization, and the same workspace+goal+idempotency_key must not create a second external-write task.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "task_id", "product", "business_owner", "delegator", "goal",
+    "scope", "budgets", "authorization_ref", "idempotency_key",
+    "requested_artifacts", "acceptance"
+  ],
+  "properties": {
+    "schema": {"const": "ovo.delegated-task/1"},
+    "task_id": {"type": "string", "minLength": 1},
+    "product": {"type": "string", "enum": ["askovo", "growovo", "verovo", "family"]},
+    "business_owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "authority"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "authority": {"type": "string", "minLength": 1}
+      }
+    },
+    "payer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "authority"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "authority": {"type": "string", "minLength": 1}
+      }
+    },
+    "liability_owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "authority"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "authority": {"type": "string", "minLength": 1}
+      }
+    },
+    "delegator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "client_id"],
+      "properties": {
+        "type": {"type": "string", "enum": ["human", "host", "agent"]},
+        "client_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "definition_ref"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "definition_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_id", "account_refs", "period"],
+      "properties": {
+        "workspace_id": {"type": "string", "minLength": 1},
+        "account_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "period": {"type": "string", "minLength": 1}
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_external_actions", "max_spend", "currency"],
+      "properties": {
+        "max_external_actions": {"type": "integer", "minimum": 0},
+        "max_spend": {"type": "number", "minimum": 0},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "authorization_ref": {"type": "string", "minLength": 0},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "requested_artifacts": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_ref", "criteria_ref"],
+      "properties": {
+        "reviewer_ref": {"type": "string", "minLength": 1},
+        "criteria_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["draft", "awaiting_authorization", "ready", "running", "needs_input", "needs_review", "paused", "cancelled", "partial", "delivered", "failed"]
+    },
+    "notes": {"type": "string"}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "ovo.service-capability/1",
+  "service": "growovo.growth-operator",
+  "use_case": "Run one authorized campaign batch and return execution receipts.",
+  "supported_inputs": ["goal.json", "authorized account reference", "approved queue"],
+  "outputs": ["operations.jsonl", "readback receipts", "daily result card"],
+  "side_effect_level": "write_external",
+  "requires_human_approval": ["arm run", "policy change", "DNC change"],
+  "can_resume": true,
+  "refusal_examples": [
+    "Unauthorized account: refuse before dispatch.",
+    "Unknown external result: stop and reconcile; never auto-retry."
+  ],
+  "maturity": "offline_verified",
+  "evidence_refs": ["local://demo/tests.log"],
+  "notes": "Synthetic example; not production-proven."
+}

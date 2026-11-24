@@ -35,6 +35,41 @@ REA 和 Craft Anything 的经验值得借，但它们解决的是「怎么逆向
 
 一次操作观察因此无法直接上升为普遍产品能力——想升级，只能补次数或补上下文。
 
+## C-01 跨产品三凭证（共享层）
+
+`contracts/` 另有 `result-receipt.schema.json`、`delegated-task.schema.json`、`service-capability.schema.json`，`validate` 会按 `schema` 字段自动识别：
+
+```bash
+python3 -m ovo_acceptance validate examples/valid-result-receipt.json
+python3 -m ovo_acceptance validate examples/valid-delegated-task.json
+python3 -m ovo_acceptance validate examples/valid-service-capability.json
+```
+
+三份契约固定了 C-01 审计中缺失的对象：结果凭证、委托任务、能力自描述。校验器只检查形状和几条硬边界——`verified_business_outcome` 必须有具名人工接受、空授权不能进入 `running`、`production_proven` 必须带 `evidence_refs`——它不证明跨产品流程已经跑通。
+
+共享层还提供只读适配器：已有 Proof Bundle 可以投影成结果凭证，也可以导出产品能力描述：
+
+```bash
+python3 -m ovo_acceptance adapter --proof path/to/proof-bundle --out receipt.json --by roy
+python3 -m ovo_acceptance adapter --product growovo --out capability.json
+```
+
+凭证固定为 `verification_state=observed`、`causality=not_claimed`：它只说明“这个 bundle 被验证过”，不说明业务成功。能力描述是产品边界的静态表，不是实时能力探测。
+
+**边界**：三个产品目前尚未接入这三份 schema 的适配器；共享层先保证“同一对象可以被同一审阅者解析”，产品内的本地 receipt/run/能力说明仍是各自事实源。下一步要么三仓各加适配层并写契约测试，要么正式把这三份降级为文档模板。
+
+## 家族词汇映射
+
+`contracts/family-vocabulary.json` 是一张声明式映射表：产品别名（含 `AgentMeasure`/`buyer-ledger`）、三产品生命周期状态到家族状态的映射、六套判决词表到家族判决的映射、证据轴、结果分层和 `P0`/`G-xx` 命名空间。`ovo_acceptance/vocabulary.py` 负责加载、校验和翻译：
+
+```bash
+python3 -m ovo_acceptance vocabulary --json
+python3 -c "from ovo_acceptance import vocabulary as v; print(v.translate_state('askovo','scoped'))"
+python3 -c "from ovo_acceptance import vocabulary as v; print(v.translate_verdict('proof','UNCHECKED'))"
+```
+
+它不替换任何产品的状态机；产品内部状态保持原样，只在跨产品阅读时使用同一张表。映射表中带 `notes` 的格子是产品语义判断（例如 Askovo `blocked` → `failed`），需要产品负责人确认后才能升级为运行时约束。
+
 ## Prove Anything Proof Bundle 协议（当前实现）
 
 目标 Proof Bundle 把一次任务整理为可携带目录：
@@ -49,9 +84,11 @@ proof-bundle/
 └── replay/             可复跑脚本、环境与输入说明
 ```
 
-当前五份 schema 覆盖合同、轨迹、证据、验收与升级基础；`proof` 命令进一步校验 `checks.json`、`proof.json`、P0–P4 分级、五态、产物哈希、投影一致性和 `replay/manifest.json`。三个产品的只读导出器分别位于各自仓库；真实外部采用、语义复核和买方处置仍须独立回执，导出成功不会替代它们。
+当前九份 schema 中，五份核心记录覆盖合同、轨迹、证据、验收与升级基础；另有 `agent-e2e-run`、`proof`、`proof-checks`、`replay-manifest` 四份，以及 C-01 的 `result-receipt`、`delegated-task`、`service-capability` 三份（合计十二份）。`proof` 命令进一步校验 `checks.json`、`proof.json`、P0–P4 分级、五态、产物哈希、投影一致性和 `replay/manifest.json`。三个产品的只读导出器分别位于各自仓库；真实外部采用、语义复核和买方处置仍须独立回执，导出成功不会替代它们。
 
 协议中的 `PASS / FAIL / UNCHECKED / INDETERMINATE / EXPIRED` 必须分开：未检查不是成功，无法判断不是失败，过期结论不能冒充当前结论。`bundle` 保留原有验收总体结论，`proof` 使用五态并输出各等级计数，不给整个任务计算最高证明等级。Proof 输出同时包含 `contract_validation.status` 与 `business_verdict.status`：前者为 `PASS` 只表示结构和格式有效，后者为 `FAIL / BLOCKED / INDETERMINATE / EXPIRED` 时必须使对应业务验收失败或保持未决，不能仅凭 `errors=[]` 认定任务成功。时间戳沿用合同的可选时区形式；无时区时间按 UTC 参与顺序比较并记录 `time_semantics.timezone_assumed=UTC` 和字段路径，混合时区不会导致校验器崩溃，但潜在业务 `PASS` 会降级为 `INDETERMINATE`。
+
+> 下表的 `P0–P4` 一律指 **proof 等级**，不是族级阶段 `P0/P1/P2`，也不是工单优先级或页面批次。
 
 | 证明层级 | 只证明什么 | 不能据此声称 |
 | --- | --- | --- |
@@ -79,6 +116,12 @@ python3 -m ovo_acceptance validate examples/valid-bundle.json
 python3 -m ovo_acceptance bundle examples/valid-bundle.json
 python3 -m ovo_acceptance bundle path/to/bundle-dir/     # 目录下的 bundle.json
 
+# 输入契约：bundle 接受单个 bundle 文件，或含 bundle.json/acceptance-bundle.json 的目录。
+# proof 只接受目录，且必须含 bundle.json、contract.json、checks.json、proof.json
+# 与 trace.jsonl（replay/manifest.json 可选）；传文件或不存在路径按用法错误退出 2。
+# 两套状态作用域不同：bundle 结论是 PASS/PASS_WITH_GAP/BLOCKED/FAIL/INVALID，
+# proof 判定态是 PASS/FAIL/UNCHECKED/INDETERMINATE/EXPIRED，不能互相替代。
+
 # proof.json 与 replay manifest 须对重放可用性和缺失输入给出一致说明。
 # 校验完整 Proof Bundle：五态、P0–P4、证据引用、产物哈希、投影和重放清单
 python3 -m ovo_acceptance proof path/to/proof-bundle/ --json
@@ -89,7 +132,37 @@ python3 -m ovo_acceptance publish examples/valid-bundle.json \
 
 # 跑契约测试
 python3 -m unittest discover -s tests
+
+# 真实任务案例：查询、校验、重放与发布门
+python3 -m ovo_acceptance case list
+python3 -m ovo_acceptance case show A-HMC-RESEARCH-01
+python3 -m ovo_acceptance case incidents --out ../ai输出/ovo-真实任务资产库/INCIDENTS.md
+python3 -m ovo_acceptance case validate
+python3 -m ovo_acceptance case verify --root .. --run-root ../ai输出/ovo-真实任务资产库/runs
 ```
+
+## 真实任务案例门
+
+`case` 复用同一份案例运行时和注册表，不再由三个产品分别实现案例逻辑。Askovo、Growovo、Verovo 也分别提供 `case` 薄入口；`OVO_ACCEPTANCE_HOME` 可覆盖运行时位置，`OVO_CASE_REGISTRY` 可为隔离测试指定另一份注册表，`OVO_CASE_ROOT` 可显式覆盖证据根目录。默认家族注册表确定家族工作区根路径；自定义注册表默认使用当前工作目录，因此从任一产品仓库调用都能正确解析案例证据。
+
+`case validate` 校验案例、执行问题、路径、重复 ID 与常见凭据材料。`case replay` 在隔离目录重跑一个任务；`case verify` 重跑全部可重放案例并区分 `task_rerun` 与 `evidence_only`。外部写案例只复核账本与证据，不重新发送、付款或签核。详细案例与问题全景见 `../ai输出/ovo-真实任务资产库/README.md` 和 `../ai输出/ovo-真实任务资产库/INCIDENTS.md`。
+
+`golden_script` 用于已经人工审查过的真实任务重放器。注册表给出 `script`、`inputs` 和 argv；`--cli`、`--inputs`、`--ocr-source` 的相对路径跟随案例工作区根目录，`{run_dir}` 指向隔离运行目录。脚本必须输出结果 JSON，且不能声明外部写；它不是执行原始会话文本或下载脚本的通道。
+
+### 独立安装与案例工作区
+
+```bash
+python3 -m pip wheel --no-deps --no-build-isolation .
+python3 -m venv /tmp/ovo-case-venv
+/tmp/ovo-case-venv/bin/pip install --no-deps dist/ovo_acceptance-0.1.0-py3-none-any.whl
+cd /path/to/case-workspace
+OVO_CASE_REGISTRY=/path/to/case-workspace/cases.jsonl \
+  /tmp/ovo-case-venv/bin/ovo-acceptance case validate
+OVO_CASE_REGISTRY=/path/to/case-workspace/cases.jsonl \
+  /tmp/ovo-case-venv/bin/ovo-acceptance case replay CASE-ID --run-root runs
+```
+
+wheel 包含校验器和合同，不复制整个家族证据库。自定义注册表默认以当前目录为证据根；家族工作区也可用 `OVO_CASE_ROOT` 显式指定。从 `ovo-acceptance/` 使用相对 `--run-root` 时写 `ai输出/ovo-真实任务资产库/runs`，不要写 `../ai输出/...`，否则会把结果落到家族目录之外。默认家族注册表仍是本机增强能力，不冒充所有证据都能随 wheel 携带。
 
 退出码：`0` 通过，`1` 校验失败，`2` 文件读不到或用法错误。
 
