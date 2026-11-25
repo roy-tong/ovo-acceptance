@@ -15,6 +15,7 @@ Python 3.9+ standard library only.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ AGENT_E2E_SCHEMA = "ovo.agent-e2e-run/1"
 RESULT_RECEIPT_SCHEMA = "ovo.result-receipt/1"
 DELEGATED_TASK_SCHEMA = "ovo.delegated-task/1"
 SERVICE_CAPABILITY_SCHEMA = "ovo.service-capability/1"
+EXPERIMENT_SCHEMA = "ovo.experiment-contract/1"
 
 KIND_BY_SCHEMA = {
     TASK_SCHEMA: "task",
@@ -42,6 +44,7 @@ KIND_BY_SCHEMA = {
     RESULT_RECEIPT_SCHEMA: "result_receipt",
     DELEGATED_TASK_SCHEMA: "delegated_task",
     SERVICE_CAPABILITY_SCHEMA: "service_capability",
+    EXPERIMENT_SCHEMA: "experiment",
 }
 SCHEMA_BY_KIND = {kind: schema for schema, kind in KIND_BY_SCHEMA.items()}
 
@@ -55,6 +58,7 @@ SCHEMA_FILES = {
     "result_receipt": "result-receipt.schema.json",
     "delegated_task": "delegated-task.schema.json",
     "service_capability": "service-capability.schema.json",
+    "experiment": "experiment-contract.schema.json",
 }
 
 VERDICTS = ("PASS", "FAIL", "UNPROVEN", "NOT_APPLICABLE")
@@ -501,6 +505,146 @@ def validate_service_capability(doc: Dict[str, Any]) -> List[Dict[str, str]]:
     return errors
 
 
+def experiment_design_hash(doc: Dict[str, Any]) -> str:
+    projection = {key: doc.get(key) for key in
+                  ("hypothesis", "design", "window", "stop_conditions")}
+    canonical = json.dumps(projection, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def validate_experiment_contract(doc: Dict[str, Any]) -> List[Dict[str, str]]:
+    errors = _schema_errors(doc, "experiment")
+    if doc.get("schema") != EXPERIMENT_SCHEMA:
+        return errors
+
+    if doc.get("design_sha256") != experiment_design_hash(doc):
+        errors.append(_error(
+            "DESIGN_FINGERPRINT_MISMATCH", "design_sha256",
+            "the fingerprint must cover hypothesis, design, window and stop_conditions"))
+
+    window = doc.get("window") if isinstance(doc.get("window"), dict) else {}
+    start = _parse_instant(str(window.get("start") or ""))
+    end = _parse_instant(str(window.get("end") or ""))
+    if start and end and end <= start:
+        errors.append(_error("TIME_ORDER", "window.end",
+                             "the experiment window must end after it starts"))
+    registered_at = _parse_instant(str(doc.get("registered_at") or ""))
+
+    design = doc.get("design") if isinstance(doc.get("design"), dict) else {}
+    arms = [item for item in (design.get("arms") or []) if isinstance(item, dict)]
+    metrics = [item for item in (design.get("primary_metrics") or [])
+               if isinstance(item, dict)]
+    arm_ids = [str(item.get("arm_id") or "") for item in arms]
+    metric_ids = [str(item.get("metric_id") or "") for item in metrics]
+    _check_unique(arm_ids, "design.arms.arm_id", errors)
+    _check_unique(metric_ids, "design.primary_metrics.metric_id", errors)
+    arm_id_set = set(arm_ids)
+    metric_id_set = set(metric_ids)
+    roles = {str(item.get("role") or "") for item in arms}
+    experiment_type = str(design.get("experiment_type") or "")
+    if experiment_type == "controlled_trial" and not {"control", "treatment"} <= roles:
+        errors.append(_error(
+            "CONTROL_REQUIRED", "design.arms",
+            "a controlled trial needs at least one control and one treatment arm"))
+    if experiment_type == "single_arm" and (len(arms) != 1 or roles != {"treatment"}):
+        errors.append(_error(
+            "SINGLE_ARM_CONFLICT", "design.arms",
+            "a single-arm experiment needs exactly one treatment arm"))
+
+    if doc.get("external_actions") is True and not doc.get("authorization_refs"):
+        errors.append(_error(
+            "EXTERNAL_ACTION_WITHOUT_AUTHORIZATION", "authorization_refs",
+            "external recruitment, distribution, spend or channel actions need an authorization ref"))
+
+    observations = [item for item in (doc.get("observations") or [])
+                    if isinstance(item, dict)]
+    observation_ids = [str(item.get("observation_id") or "") for item in observations]
+    _check_unique(observation_ids, "observations.observation_id", errors)
+    observation_by_id = {str(item.get("observation_id") or ""): item
+                         for item in observations}
+    eligible_primary = set()
+    eligible_arms = set()
+    for index, observation in enumerate(observations):
+        path = "observations[%d]" % index
+        arm_id = str(observation.get("arm_id") or "")
+        metric_id = str(observation.get("metric_id") or "")
+        if arm_id not in arm_id_set:
+            errors.append(_error("UNKNOWN_ARM", path + ".arm_id",
+                                 "observation references an unregistered arm"))
+        if metric_id not in metric_id_set:
+            errors.append(_error("UNKNOWN_METRIC", path + ".metric_id",
+                                 "observation references an unregistered primary metric"))
+        if observation.get("value_number") is None \
+                and not str(observation.get("value_text") or "").strip():
+            errors.append(_error(
+                "OBSERVATION_VALUE_REQUIRED", path,
+                "an observation needs value_number or value_text"))
+        if observation.get("eligible") is False \
+                and not str(observation.get("exclusion_reason") or "").strip():
+            errors.append(_error(
+                "EXCLUSION_REASON_REQUIRED", path + ".exclusion_reason",
+                "an excluded observation must explain why it is ineligible"))
+        observed_at = _parse_instant(str(observation.get("observed_at") or ""))
+        if registered_at and observed_at and observed_at < registered_at:
+            errors.append(_error(
+                "OBSERVATION_BEFORE_REGISTRATION", path + ".observed_at",
+                "a registered experiment cannot use observations from before registration"))
+        if observed_at and ((start and observed_at < start) or (end and observed_at > end)):
+            errors.append(_error(
+                "OBSERVATION_OUTSIDE_WINDOW", path + ".observed_at",
+                "observation time is outside the registered experiment window"))
+        if observation.get("eligible") is True and metric_id in metric_id_set:
+            eligible_primary.add(str(observation.get("observation_id") or ""))
+            eligible_arms.add(arm_id)
+
+    outcome = doc.get("outcome") if isinstance(doc.get("outcome"), dict) else {}
+    outcome_status = str(outcome.get("status") or "")
+    causality = str(outcome.get("causality") or "")
+    evidence_refs = [str(value) for value in (outcome.get("evidence_refs") or [])]
+    _check_unique(evidence_refs, "outcome.evidence_refs", errors)
+    for ref in evidence_refs:
+        if ref not in observation_by_id:
+            errors.append(_error("UNKNOWN_EVIDENCE", "outcome.evidence_refs",
+                                 "outcome references unknown observation %r" % ref))
+    if outcome_status in ("supports_hypothesis", "refutes_hypothesis"):
+        if not evidence_refs or not set(evidence_refs) & eligible_primary:
+            errors.append(_error(
+                "OUTCOME_WITHOUT_EVIDENCE", "outcome.evidence_refs",
+                "a decisive outcome needs an eligible primary-metric observation"))
+        if not str(outcome.get("evaluated_by") or "").strip() \
+                or not _parse_instant(str(outcome.get("evaluated_at") or "")):
+            errors.append(_error(
+                "OUTCOME_REVIEW_REQUIRED", "outcome",
+                "a decisive outcome needs a named evaluator and evaluation timestamp"))
+    if outcome_status == "not_evaluated" and causality != "not_claimed":
+        errors.append(_error(
+            "OUTCOME_CAUSALITY_CONFLICT", "outcome.causality",
+            "an unevaluated outcome cannot claim association or causality"))
+
+    if causality in ("causal_supported", "causal_refuted"):
+        comparability = design.get("comparability") \
+            if isinstance(design.get("comparability"), dict) else {}
+        comparable = all(comparability.get(field) is True for field in
+                         ("same_task_set", "same_acceptance_rubric", "same_budget"))
+        design_allowed = (experiment_type == "controlled_trial"
+                          and design.get("assignment") == "randomized"
+                          and {"control", "treatment"} <= roles
+                          and comparable
+                          and eligible_arms >= arm_id_set)
+        if not design_allowed:
+            errors.append(_error(
+                "CAUSAL_DESIGN_INSUFFICIENT", "outcome.causality",
+                "causal claims need randomized comparable control/treatment arms and eligible observations in every arm"))
+        expected_status = ("supports_hypothesis" if causality == "causal_supported"
+                           else "refutes_hypothesis")
+        if outcome_status != expected_status:
+            errors.append(_error(
+                "CAUSAL_RESULT_MISMATCH", "outcome.status",
+                "%s requires outcome status %s" % (causality, expected_status)))
+    return errors
+
+
 VALIDATORS = {
     "task": validate_task_contract,
     "trace": validate_execution_trace,
@@ -511,6 +655,7 @@ VALIDATORS = {
     "result_receipt": validate_result_receipt,
     "delegated_task": validate_delegated_task,
     "service_capability": validate_service_capability,
+    "experiment": validate_experiment_contract,
 }
 
 
@@ -822,6 +967,7 @@ __all__ = [
     "BUNDLE_SCHEMA", "TASK_SCHEMA", "TRACE_SCHEMA", "LEDGER_SCHEMA",
     "ACCEPTANCE_SCHEMA", "ESCALATION_SCHEMA", "AGENT_E2E_SCHEMA",
     "RESULT_RECEIPT_SCHEMA", "DELEGATED_TASK_SCHEMA", "SERVICE_CAPABILITY_SCHEMA",
+    "EXPERIMENT_SCHEMA",
     "KIND_BY_SCHEMA", "SCHEMA_BY_KIND",
     "VERDICTS", "DECISIONS", "TRIGGERS", "GENERALIZATIONS", "CONTEXT_FIELDS",
     "AcceptanceError", "load_json", "load_schema", "detect_kind",
@@ -829,7 +975,8 @@ __all__ = [
     "validate_evidence_ledger", "validate_acceptance_record",
     "validate_escalation_record", "validate_agent_e2e_run",
     "validate_result_receipt", "validate_delegated_task",
-    "validate_service_capability",
+    "validate_service_capability", "experiment_design_hash",
+    "validate_experiment_contract",
     "validate_document", "validate_bundle",
     "observation_scope_note",
 ]

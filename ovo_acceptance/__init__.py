@@ -27,4 +27,4 @@ from .model import (  # noqa: F401
     validate_task_contract,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

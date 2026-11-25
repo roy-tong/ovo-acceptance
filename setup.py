@@ -14,7 +14,7 @@ class BuildPy(build_py):
 
 setup(
     name="ovo-acceptance",
-    version="0.2.0",
+    version="0.3.0",
     description="Shared task contracts, evidence and case replay for OVO products",
     long_description=(ROOT / "README.md").read_text(encoding="utf-8"),
     long_description_content_type="text/markdown",

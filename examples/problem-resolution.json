@@ -1,0 +1,21 @@
+{
+  "schema": "ovo.problem-resolution/1",
+  "problem_id": "problem-demo-data",
+  "product": "verovo",
+  "task_id": "task-demo-audit",
+  "observed_at": "2026-11-25T00:00:00Z",
+  "observation": {
+    "code": "BILLING_RULE_MISSING",
+    "summary": "The authorized local bundle does not include the applicable billing rule.",
+    "external_effect_status": "none",
+    "evidence_refs": ["intake-report-demo"]
+  },
+  "requested_resolution": "data_needed",
+  "data": {
+    "request_id": "data-request-billing-rule",
+    "source": "buyer-authorized-contract-export",
+    "access_basis": "buyer-owned contract export",
+    "automatic_fetch_attempted": true,
+    "side_effect_free_fetch": true
+  }
+}

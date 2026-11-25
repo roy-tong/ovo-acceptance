@@ -58,6 +58,91 @@ python3 -m ovo_acceptance adapter --product growovo --out capability.json
 
 **边界**：三个产品目前尚未接入这三份 schema 的适配器；共享层先保证“同一对象可以被同一审阅者解析”，产品内的本地 receipt/run/能力说明仍是各自事实源。下一步要么三仓各加适配层并写契约测试，要么正式把这三份降级为文档模板。
 
+## 统一 Experiment Contract
+
+`contracts/experiment-contract.schema.json` 为 Askovo 需求验证、Growovo 增长实验和 Verovo 工具价值实验提供同一份可携带合同。它固定假设与证伪条件、处理/对照组、主指标、可比性、时间窗、停止条件、授权、观察、结果和业务决定：
+
+```bash
+python3 -m ovo_acceptance validate examples/valid-experiment-contract.json
+python3 -c "from ovo_acceptance import model; import json; d=json.load(open('examples/valid-experiment-contract.json')); print(model.experiment_design_hash(d))"
+```
+
+`design_sha256` 绑定假设、设计、时间窗和停止条件；注册后改动这些字段会使合同失效。每个 arm 还可携带结构化 `price {amount,currency,definition}`，金额非负、币种为三位大写字母，价格变更同样会使设计指纹失效。价格字段只描述实验条件，不把注册意向升级为支付或收入。观察必须引用已登记分组和主指标，排除样本要说明原因，外部招募、分发、渠道或付费动作需要授权引用。
+
+结果把 `supports_hypothesis / refutes_hypothesis / inconclusive / not_evaluated` 与 `descriptive_association / causal_supported / causal_refuted / not_claimed` 分开。固定分组和前后对比最多先形成描述性关联；因果声明还要求随机分组、控制/处理组、同任务集、同验收标准、同预算以及每组合格观察。校验器只检查这些结构前提，不计算统计显著性，也不证明实验已在真实世界执行。业务决定由具名负责人另行记录。
+
+三个产品分别提供只读导出器：Askovo 从 `capture plan` 投影，Growovo 从持久增长实验与事件投影，Verovo 从可比 tool-value 任务投影。它们共用本合同但不互相依赖；导出只整理本地事实，不代表实验已自动执行、样本足够或业务结论通过。
+
+多份已校验合同可整理为本地可复用数据集：
+
+```bash
+python3 -m ovo_acceptance experiment-dataset \
+  --dataset-id ovo-local-experiments --out ./experiment-dataset \
+  examples/valid-experiment-contract.json
+```
+
+`experiment-dataset` 固定为 `classification=local_only` 和 `public_release=not_authorized`，输出完整合同、稳定数据集哈希、产品/状态/结果/证据资格计数和指标清单。它不复制原始证据文件，不跨实验合并异质指标、成本或人群，也不提升因果等级。公开分享必须另行授权和脱敏；本地数据集构建不等于外部贡献、采用或 R5 生态结果已经成立。
+
+## 研发工单范围与实现覆盖
+
+`ovo_acceptance/roadmap_coverage.py` 校验编号工单目录，并分别汇总实现、验收、优先级和范围决定：
+
+```bash
+python3 -m ovo_acceptance roadmap-coverage ../ai输出/研发交付/roadmap-work-items-20261125.json --json
+```
+
+每项 `A1-01` 类工单必须绑定所属模块、产品、标题、优先级、实现/验收状态、证据、测试、案例、范围决定和未决条件。`unknown` 与 `pending` 不会被实现文档自动消除；`accepted_external` 必须有案例且无未决条件。无子编号模块单独计数。目录用于安排研发与补验，不把范围决定或局部测试冒充外部产品完成。
+
+## 47 个业务场景的入口与验收覆盖
+
+`ovo_acceptance/scenario_coverage.py` 校验机器可读场景目录，并把实现状态与验收状态分开：
+
+```bash
+python3 -m ovo_acceptance scenario-coverage ../ai输出/研发交付/business-scenario-catalog-20261125.json --json
+```
+
+每个 `A-Sxx / G-Sxx / V-Sxx` 场景必须声明产品、入口、实现状态、验收状态、已有线索、测试、案例和未决条件。`accepted_real` / `accepted_external` 必须引用案例且不能保留未决条件；本地实现、合成通过或真实业务的部分证据都不能自动升级成整场景接受。当前目录覆盖 15／16／16 个场景，输出只报告分层计数，不给出虚假的整体完成百分比。
+
+## Model Upgrade Test
+
+`ovo_acceptance/model_upgrade.py` 对同一任务的四个独立运行做描述性比较：弱模型无 OVO、弱模型+OVO、强模型无 OVO、强模型+OVO。指标可声明 `higher_better` 或 `lower_better`，输出两种模型下的 OVO 增益、增益变化和容差内的 `amplified / stable / diminishing`：
+
+```bash
+python3 -m ovo_acceptance model-upgrade examples/valid-model-upgrade.json --json
+```
+
+四臂必须有唯一运行引用、原始证据、自然语言任务、新鲜会话和无答案提示，并满足同任务、输入、授权、验收规则与预算。缺资格时不计算增益。单任务结果只是描述性证据，不自动证明一般产品架构结论、因果或在更复杂/更长任务上的表现；真实采用仍需相应外部记录。
+
+## 低人工干预有效交付率与体验失败分类
+
+`ovo_acceptance/experience.py` 汇总真实授权的 `agent-e2e-run`、独立人工耗时记录、各 case 的预登记人工上限和失败分类：
+
+```bash
+python3 -m ovo_acceptance experience examples/experience-summary.json --json
+```
+
+分母是所有已开始的真实授权运行，包括失败和高人工成功；分子只包含总人工不超过 case 上限的 `REAL_SUCCESS`。缺少耗时或上限保持未决，合成运行单列，不能变成零人工成功。人工记录区分总耗时、授权、必要业务输入和产品问题耗时。失败分类覆盖 discovery、installation、invocation、context、data、execution、recovery、intelligence、delivery、intervention 和 value。输出同时给总体与逐 case 比率、结果分布、人工耗时和失败分类，指标是描述性验收，不证明因果。
+
+## Problem Resolution Contract
+
+`ovo_acceptance/resolution.py` 把三产品遇到问题后的默认行为统一为七类：`auto_fix`、`switch_path`、`partial_delivery`、`data_needed`、`permission_needed`、`business_decision` 和 `stop`：
+
+```bash
+python3 -m ovo_acceptance resolution examples/problem-resolution.json --json
+```
+
+自动修复必须无副作用、保持原授权并限制尝试次数；替代路径必须已验证、合规、范围一致且有授权引用。外部结果未知时，修复或换路前先对账，已完成结果不得重复执行。缺数据先尝试无副作用的合规自动获取，仍缺失才询问用户；权限请求只包含缺少的增量范围。部分交付必须列出限制，业务判断必须给证据和至少两个带影响的选项。校验器只输出下一步建议，`execution_applied` 永远为 `false`；三产品的实际接入和外部执行结果分别验收。
+
+## Host Compatibility Matrix
+
+`ovo_acceptance/host_matrix.py` 汇总宿主×模型×产品的八类能力：Skill 发现、CLI 安装执行、MCP 调用、高阶任务、文件/数据访问、多轮恢复、后台执行和自然语言交付：
+
+```bash
+python3 -m ovo_acceptance host-matrix examples/host-compatibility.json --json
+```
+
+`PASS/FAIL` 必须引用运行和证据，`CAPABILITY_ONLY` 必须有探测证据但绝不等同后台运营通过，`UNSUPPORTED` 必须解释原因，`NOT_RUN` 与不支持的语义保持分离。高阶任务和自然语言交付都通过时，矩阵才给出结构性 `core_l3_status=PASS`；关联的 `agent-e2e-run` 仍须独立满足新鲜会话、真实输入和人工验收，才能声称真实 L3/L4。矩阵只汇总已有观察，不执行新测试，也不生成“完全兼容”总标签。
+
 ## 家族词汇映射
 
 `contracts/family-vocabulary.json` 是一张声明式映射表：产品别名（含 `AgentMeasure`/`buyer-ledger`）、三产品生命周期状态到家族状态的映射、六套判决词表到家族判决的映射、证据轴、结果分层和 `P0`/`G-xx` 命名空间。`ovo_acceptance/vocabulary.py` 负责加载、校验和翻译：
@@ -84,7 +169,7 @@ proof-bundle/
 └── replay/             可复跑脚本、环境与输入说明
 ```
 
-当前九份 schema 中，五份核心记录覆盖合同、轨迹、证据、验收与升级基础；另有 `agent-e2e-run`、`proof`、`proof-checks`、`replay-manifest` 四份，以及 C-01 的 `result-receipt`、`delegated-task`、`service-capability` 三份（合计十二份）。`proof` 命令进一步校验 `checks.json`、`proof.json`、P0–P4 分级、五态、产物哈希、投影一致性和 `replay/manifest.json`。三个产品的只读导出器分别位于各自仓库；真实外部采用、语义复核和买方处置仍须独立回执，导出成功不会替代它们。
+当前十三份 schema 中，五份核心记录覆盖合同、轨迹、证据、验收与升级基础；另有 `agent-e2e-run`、`proof`、`proof-checks`、`replay-manifest` 四份，C-01 的 `result-receipt`、`delegated-task`、`service-capability` 三份，以及跨产品 `experiment-contract`。`proof` 命令进一步校验 `checks.json`、`proof.json`、P0–P4 分级、五态、产物哈希、投影一致性和 `replay/manifest.json`。三个产品的只读导出器分别位于各自仓库；真实外部采用、语义复核和买方处置仍须独立回执，导出成功不会替代它们。
 
 协议中的 `PASS / FAIL / UNCHECKED / INDETERMINATE / EXPIRED` 必须分开：未检查不是成功，无法判断不是失败，过期结论不能冒充当前结论。`bundle` 保留原有验收总体结论，`proof` 使用五态并输出各等级计数，不给整个任务计算最高证明等级。Proof 输出同时包含 `contract_validation.status` 与 `business_verdict.status`：前者为 `PASS` 只表示结构和格式有效，后者为 `FAIL / BLOCKED / INDETERMINATE / EXPIRED` 时必须使对应业务验收失败或保持未决，不能仅凭 `errors=[]` 认定任务成功。时间戳沿用合同的可选时区形式；无时区时间按 UTC 参与顺序比较并记录 `time_semantics.timezone_assumed=UTC` 和字段路径，混合时区不会导致校验器崩溃，但潜在业务 `PASS` 会降级为 `INDETERMINATE`。
 
@@ -154,7 +239,7 @@ python3 -m ovo_acceptance case verify --root .. --run-root ../ai输出/ovo-真�
 ```bash
 python3 -m pip wheel --no-deps --no-build-isolation .
 python3 -m venv /tmp/ovo-case-venv
-/tmp/ovo-case-venv/bin/pip install --no-deps dist/ovo_acceptance-0.1.0-py3-none-any.whl
+/tmp/ovo-case-venv/bin/pip install --no-deps dist/ovo_acceptance-0.3.0-py3-none-any.whl
 cd /path/to/case-workspace
 OVO_CASE_REGISTRY=/path/to/case-workspace/cases.jsonl \
   /tmp/ovo-case-venv/bin/ovo-acceptance case validate

@@ -1,0 +1,100 @@
+{
+  "schema": "ovo.experiment-contract/1",
+  "experiment_id": "EXP-ASKOVO-DEMO-001",
+  "origin_product": "askovo",
+  "origin_version": "2.24.0",
+  "task_id": "A-T03",
+  "title": "Synthetic two-concept demand test",
+  "state": "completed",
+  "hypothesis": {
+    "statement": "Concept B produces more qualified sign-up intent than concept A.",
+    "falsification_condition": "Concept B does not exceed concept A on the primary metric."
+  },
+  "design": {
+    "experiment_type": "controlled_trial",
+    "unit_of_analysis": "arm_aggregate",
+    "population": "Synthetic qualified independent-developer visitors",
+    "assignment": "fixed_groups",
+    "arms": [
+      {
+        "arm_id": "control",
+        "role": "control",
+        "description": "Concept A landing page",
+        "planned_sample_size": 30
+      },
+      {
+        "arm_id": "treatment",
+        "role": "treatment",
+        "description": "Concept B landing page",
+        "planned_sample_size": 30
+      }
+    ],
+    "primary_metrics": [
+      {
+        "metric_id": "qualified_signup_rate",
+        "definition": "Qualified sign-up completions divided by eligible exposed visitors.",
+        "unit": "ratio",
+        "direction": "increase"
+      }
+    ],
+    "comparability": {
+      "same_task_set": true,
+      "same_acceptance_rubric": true,
+      "same_budget": true,
+      "controlled_variables": ["Exposure window", "Visitor qualification", "Sign-up rubric"],
+      "known_differences": ["Concept variant"]
+    }
+  },
+  "window": {
+    "start": "2026-11-20T00:00:00Z",
+    "end": "2026-11-24T23:59:59Z"
+  },
+  "stop_conditions": ["Stop after 30 qualified visitors per arm."],
+  "external_actions": false,
+  "authorization_refs": [],
+  "registered_by": "demo-research-owner",
+  "registered_at": "2026-11-19T12:00:00Z",
+  "design_sha256": "sha256:af734dfa41709e248a4b8d984c339520698ec6d1bd26222e9a9820d3fe4fc9cb",
+  "observations": [
+    {
+      "observation_id": "OBS-CONTROL",
+      "arm_id": "control",
+      "metric_id": "qualified_signup_rate",
+      "subject_ref": "synthetic-aggregate:control",
+      "observed_at": "2026-11-24T20:00:00Z",
+      "value_number": 0.1,
+      "source_ref": "synthetic://concept-test/control",
+      "source_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence_grade": "observed",
+      "eligible": true,
+      "exclusion_reason": ""
+    },
+    {
+      "observation_id": "OBS-TREATMENT",
+      "arm_id": "treatment",
+      "metric_id": "qualified_signup_rate",
+      "subject_ref": "synthetic-aggregate:treatment",
+      "observed_at": "2026-11-24T20:00:00Z",
+      "value_number": 0.2,
+      "source_ref": "synthetic://concept-test/treatment",
+      "source_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "evidence_grade": "observed",
+      "eligible": true,
+      "exclusion_reason": ""
+    }
+  ],
+  "outcome": {
+    "status": "supports_hypothesis",
+    "causality": "descriptive_association",
+    "evidence_refs": ["OBS-CONTROL", "OBS-TREATMENT"],
+    "evaluated_by": "demo-research-owner",
+    "evaluated_at": "2026-11-24T21:00:00Z",
+    "notes": "Synthetic descriptive example; fixed groups do not establish causality."
+  },
+  "decision": {
+    "choice": "revise",
+    "rationale": "Run a randomized follow-up before treating the difference as incremental impact.",
+    "decided_by": "demo-product-owner",
+    "decided_at": "2026-11-24T22:00:00Z"
+  }
+}

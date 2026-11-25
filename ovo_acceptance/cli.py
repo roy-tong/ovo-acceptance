@@ -1,11 +1,18 @@
 """Command line for the OVO shared acceptance layer.
 
-  python3 -m ovo_acceptance validate FILE [--kind task|trace|evidence|acceptance|escalation|agent_e2e|result_receipt|delegated_task|service_capability]
+  python3 -m ovo_acceptance validate FILE [--kind task|trace|evidence|acceptance|escalation|agent_e2e|result_receipt|delegated_task|service_capability|experiment]
   python3 -m ovo_acceptance bundle DIR_OR_FILE
   python3 -m ovo_acceptance publish DIR_OR_FILE --out PUBLIC_DIR --classification synthetic --by NAME
   python3 -m ovo_acceptance vocabulary [--json]
   python3 -m ovo_acceptance adapter --proof DIR --out FILE [--by NAME]
   python3 -m ovo_acceptance adapter --product askovo|growovo|verovo --out FILE
+  python3 -m ovo_acceptance model-upgrade FILE [--json]
+  python3 -m ovo_acceptance experience FILE [--json]
+  python3 -m ovo_acceptance resolution FILE [--json]
+  python3 -m ovo_acceptance host-matrix FILE [--json]
+  python3 -m ovo_acceptance roadmap-coverage FILE [--json]
+  python3 -m ovo_acceptance scenario-coverage FILE [--json]
+  python3 -m ovo_acceptance experiment-dataset --dataset-id ID --out NEW_DIR FILE...
   python3 -m ovo_acceptance case list|show|incidents|index|validate|replay|verify
 
 Exit codes: 0 accepted, 1 validation failed, 2 usage or unreadable input.
@@ -185,6 +192,89 @@ def _cmd_publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_model_upgrade(args: argparse.Namespace) -> int:
+    from . import model_upgrade
+    try:
+        document = model.load_json(Path(args.file))
+        result = model_upgrade.compare(document)
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["status"] == "ELIGIBLE" else 1
+
+
+def _cmd_experience(args: argparse.Namespace) -> int:
+    from . import experience
+    try:
+        result = experience.summarize(model.load_json(Path(args.file)))
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_resolution(args: argparse.Namespace) -> int:
+    from . import resolution
+    try:
+        result = resolution.evaluate(model.load_json(Path(args.file)))
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_host_matrix(args: argparse.Namespace) -> int:
+    from . import host_matrix
+    try:
+        result = host_matrix.summarize(model.load_json(Path(args.file)))
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_roadmap_coverage(args: argparse.Namespace) -> int:
+    from . import roadmap_coverage
+    try:
+        result = roadmap_coverage.summarize(model.load_json(Path(args.file)))
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_scenario_coverage(args: argparse.Namespace) -> int:
+    from . import scenario_coverage
+    try:
+        result = scenario_coverage.summarize(model.load_json(Path(args.file)))
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_experiment_dataset(args: argparse.Namespace) -> int:
+    from . import experiment_dataset
+    try:
+        documents = [model.load_json(Path(path)) for path in args.files]
+        document = experiment_dataset.build(documents, dataset_id=args.dataset_id)
+        target = experiment_dataset.write_new(document, args.out)
+    except ValueError as exc:
+        print("ERROR: %s" % exc, file=sys.stderr)
+        return 2
+    print(json.dumps({"status": "created", "dataset_id": document["dataset_id"],
+                      "experiments": document["summary"]["experiments"],
+                      "path": str(target), "classification": document["classification"]},
+                     ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ovo-acceptance",
@@ -197,7 +287,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument(
         "--kind", default="",
         choices=["", "task", "trace", "evidence", "acceptance", "escalation", "agent_e2e",
-                 "result_receipt", "delegated_task", "service_capability"],
+                 "result_receipt", "delegated_task", "service_capability", "experiment"],
         help="默认按文档的 schema 字段自动识别")
     validate_parser.add_argument("--json", action="store_true")
     validate_parser.set_defaults(func=_cmd_validate)
@@ -240,6 +330,49 @@ def build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("--by", required=True, help="具名发布人")
     publish_parser.add_argument("--json", action="store_true")
     publish_parser.set_defaults(func=_cmd_publish)
+
+    upgrade_parser = sub.add_parser(
+        "model-upgrade", help="比较弱/强模型 × 有无 OVO 的四臂任务增益")
+    upgrade_parser.add_argument("file", help="ovo.model-upgrade-test/1 JSON")
+    upgrade_parser.add_argument("--json", action="store_true")
+    upgrade_parser.set_defaults(func=_cmd_model_upgrade)
+
+    experience_parser = sub.add_parser(
+        "experience", help="汇总低人工干预有效交付率与体验失败分类")
+    experience_parser.add_argument("file", help="runs + effort + human_limits + failures JSON")
+    experience_parser.add_argument("--json", action="store_true")
+    experience_parser.set_defaults(func=_cmd_experience)
+
+    resolution_parser = sub.add_parser(
+        "resolution", help="校验 Problem Resolution Contract 并给出安全的下一步建议")
+    resolution_parser.add_argument("file", help="ovo.problem-resolution/1 JSON")
+    resolution_parser.add_argument("--json", action="store_true")
+    resolution_parser.set_defaults(func=_cmd_resolution)
+
+    host_parser = sub.add_parser(
+        "host-matrix", help="汇总宿主能力实测、能力探测、未测和不支持状态")
+    host_parser.add_argument("file", help="ovo.host-compatibility/1 JSON")
+    host_parser.add_argument("--json", action="store_true")
+    host_parser.set_defaults(func=_cmd_host_matrix)
+
+    roadmap_parser = sub.add_parser(
+        "roadmap-coverage", help="汇总研发工单实现、范围决定与分级验收，不推断外部完成")
+    roadmap_parser.add_argument("file", help="ovo.roadmap-work-items/1 JSON")
+    roadmap_parser.add_argument("--json", action="store_true")
+    roadmap_parser.set_defaults(func=_cmd_roadmap_coverage)
+
+    scenario_parser = sub.add_parser(
+        "scenario-coverage", help="汇总业务场景入口、实现与分级验收覆盖，不推断产品完成率")
+    scenario_parser.add_argument("file", help="ovo.business-scenario-catalog/1 JSON")
+    scenario_parser.add_argument("--json", action="store_true")
+    scenario_parser.set_defaults(func=_cmd_scenario_coverage)
+
+    dataset_parser = sub.add_parser(
+        "experiment-dataset", help="把已校验实验合同整理为 local-only 可复用数据集")
+    dataset_parser.add_argument("--dataset-id", required=True)
+    dataset_parser.add_argument("--out", required=True, help="新建或空输出目录")
+    dataset_parser.add_argument("files", nargs="+", help="ovo.experiment-contract/1 JSON files")
+    dataset_parser.set_defaults(func=_cmd_experiment_dataset)
     return parser
 
 

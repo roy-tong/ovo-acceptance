@@ -782,6 +782,16 @@ def _run_root(args, registry):
     return _workspace_root(args, registry) / run_root
 
 
+def _default_registry() -> Path:
+    relative = Path("ai输出/ovo-真实任务资产库/registry/cases.jsonl")
+    source = Path(__file__).resolve()
+    for ancestor in source.parents:
+        candidate = ancestor / relative
+        if candidate.is_file():
+            return candidate
+    return source.parents[2] / relative
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="OVO real-task case library")
     sub = parser.add_subparsers(dest="action", required=True)
@@ -810,7 +820,7 @@ def main(argv=None):
     verify_parser.add_argument("--root", default=".")
     verify_parser.add_argument("--run-root", required=True)
     args = parser.parse_args(argv)
-    registry = Path(os.environ.get("OVO_CASE_REGISTRY") or (Path(__file__).resolve().parents[2] / "ai输出/ovo-真实任务资产库/registry/cases.jsonl"))
+    registry = Path(os.environ.get("OVO_CASE_REGISTRY") or _default_registry())
     if args.action == "index":
         rows = build_session_index(args.kimi_root, args.zcode_digest_root) + build_aux_session_index(
             args.codex_root, args.dsh_root, args.kimi_work_root)
