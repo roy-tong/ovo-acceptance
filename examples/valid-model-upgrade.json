@@ -1,0 +1,45 @@
+{
+  "schema": "ovo.model-upgrade-test/1",
+  "test_id": "MUT-ASKOVO-SYNTHETIC-01",
+  "task_id": "A-T01",
+  "input_class": "synthetic",
+  "product": {"name": "askovo", "version": "2.24.0"},
+  "weak_model": "weak-fixture-model",
+  "strong_model": "strong-fixture-model",
+  "metric": {
+    "metric_id": "accepted_research_evidence",
+    "definition": "Count of independently accepted evidence items for the same task.",
+    "unit": "items",
+    "direction": "higher_better",
+    "tolerance": 0.1
+  },
+  "comparability": {
+    "same_task": true,
+    "same_inputs": true,
+    "same_authorization": true,
+    "same_acceptance_rubric": true,
+    "same_budget": true
+  },
+  "arms": {
+    "weak_without_product": {
+      "run_ref": "synthetic-run-A", "value": 2, "accepted": true,
+      "fresh_session": true, "natural_language_task": true,
+      "solution_hints_provided": false, "evidence_ref": "synthetic-evidence-A"
+    },
+    "weak_with_product": {
+      "run_ref": "synthetic-run-B", "value": 4, "accepted": true,
+      "fresh_session": true, "natural_language_task": true,
+      "solution_hints_provided": false, "evidence_ref": "synthetic-evidence-B"
+    },
+    "strong_without_product": {
+      "run_ref": "synthetic-run-C", "value": 5, "accepted": true,
+      "fresh_session": true, "natural_language_task": true,
+      "solution_hints_provided": false, "evidence_ref": "synthetic-evidence-C"
+    },
+    "strong_with_product": {
+      "run_ref": "synthetic-run-D", "value": 10, "accepted": true,
+      "fresh_session": true, "natural_language_task": true,
+      "solution_hints_provided": false, "evidence_ref": "synthetic-evidence-D"
+    }
+  }
+}

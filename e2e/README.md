@@ -24,3 +24,9 @@ python3 -m unittest tests.test_agent_e2e -v
 ```
 
 私密原始会话和买方材料不进入公开 Proof Bundle。公开分享仍走现有 `publish` 的 `synthetic` 或具名授权 `public-redacted` 分类。
+
+完成弱/强模型四臂运行后，可用 `python3 -m ovo_acceptance model-upgrade examples/valid-model-upgrade.json --json` 计算 OVO 增益是否放大。比较器要求唯一运行和证据引用、同任务/输入/授权/验收/预算；单任务 `amplified / stable / diminishing` 是描述性结果，不替代这些真实 E2E 验收或因果分析。
+
+用 `python3 -m ovo_acceptance experience examples/experience-summary.json --json` 汇总低人工干预有效交付率。分母保留全部真实已开始任务；人工上限、独立耗时和 11 类失败按 run/case 登记，缺数据不进入低人工分子。
+
+用 `python3 -m ovo_acceptance host-matrix examples/host-compatibility.json --json` 汇总 Skill/CLI/MCP、高阶任务、文件访问、恢复、后台能力和自然语言交付。实测状态必须引用运行与证据；能力探测、未测和不支持分别记录。矩阵不执行新测试，示例的 `INCOMPLETE` 不是宿主实测失败，也不是真实 L3 通过。

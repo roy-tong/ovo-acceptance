@@ -1,0 +1,32 @@
+{
+  "runs": [
+    {
+      "schema": "ovo.agent-e2e-run/1",
+      "run_id": "synthetic-experience-01",
+      "case_id": "A-E2E-01",
+      "arm": "product",
+      "product": "askovo",
+      "input_class": "synthetic",
+      "agent": {"host": "fixture", "model": "fixture", "session_ref": "synthetic-session"},
+      "fresh_session": true,
+      "natural_language_task": true,
+      "solution_hints_provided": false,
+      "started_at": "2026-11-25T00:00:00Z",
+      "finished_at": "2026-11-25T00:01:00Z",
+      "outcome": "JUSTIFIED_REFUSAL",
+      "external_result_observed": false,
+      "evidence": {
+        "session_transcript_ref": "synthetic-transcript",
+        "tool_trace_ref": "synthetic-trace",
+        "deliverable_refs": [],
+        "human_review_ref": "synthetic-review"
+      },
+      "human_review": {"reviewed_by": "fixture-reviewer", "reviewed_at": "2026-11-25T00:02:00Z", "accepted": false, "minutes": 0},
+      "defect_ids": [],
+      "notes": "Synthetic example only; real-authorized rate remains unknown."
+    }
+  ],
+  "human_limits": {},
+  "effort": {},
+  "failures": []
+}

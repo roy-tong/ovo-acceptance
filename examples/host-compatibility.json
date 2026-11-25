@@ -1,0 +1,28 @@
+{
+  "schema": "ovo.host-compatibility/1",
+  "matrix_id": "matrix-demo-not-run",
+  "observations": [
+    {
+      "host": "example-host",
+      "model": "example-model",
+      "product": "askovo",
+      "capability": "high_level_task",
+      "status": "NOT_RUN"
+    },
+    {
+      "host": "example-host",
+      "model": "example-model",
+      "product": "askovo",
+      "capability": "natural_language_delivery",
+      "status": "NOT_RUN"
+    },
+    {
+      "host": "example-host",
+      "model": "example-model",
+      "product": "askovo",
+      "capability": "background_execution",
+      "status": "CAPABILITY_ONLY",
+      "evidence_ref": "synthetic-local-capability-probe"
+    }
+  ]
+}
