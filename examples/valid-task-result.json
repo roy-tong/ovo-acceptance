@@ -1,0 +1,33 @@
+{
+  "schema": "ovo.task-result/1",
+  "task_id": "research-task-001",
+  "product": "askovo",
+  "status": "waiting_external",
+  "completed": [
+    "Collected and normalized the authorized public research records."
+  ],
+  "observations": [
+    "Desktop research is complete; participant recruitment has not started."
+  ],
+  "evidence_refs": [
+    "study/04-findings/research-loop.json"
+  ],
+  "missing_conditions": [
+    {
+      "code": "AUTHORIZATION_REQUIRED",
+      "detail": "Named authorization is required before inviting participants.",
+      "scope": "participant_recruitment",
+      "blocking": true
+    }
+  ],
+  "next_actions": [
+    {
+      "kind": "instruction",
+      "description": "Authorize participant recruitment, then resume the research task.",
+      "requires_user": true,
+      "command": "askovo decide status research-task-001"
+    }
+  ],
+  "user_decision_required": false,
+  "resume_ref": "research-task-001"
+}

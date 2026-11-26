@@ -69,6 +69,34 @@ class CaseEntryTests(unittest.TestCase):
             self.assertTrue((root / "runs/DEMO-GOLDEN/workspace/result.json").is_file())
             self.assertTrue((root / "runs/DEMO-GOLDEN/command-1.log").is_file())
 
+    def test_verify_normalizes_golden_result_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "replay.py"
+            script.write_text(
+                "import json\n"
+                "print(json.dumps({'status':'PASS','external_writes':0}))\n",
+                encoding="utf-8")
+            case = {"case_id": "DEMO-UPPERCASE", "replay": {
+                "mode": "golden_script", "script": "replay.py", "argv": []}}
+            result = casebook.verify_cases([case], root=root, run_root=root / "runs")
+            self.assertEqual({"passed": 1, "failed": 0, "blocked": 0}, result["summary"])
+            self.assertEqual("passed", result["results"][0]["status"])
+
+    def test_verify_rejects_unknown_golden_result_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "replay.py"
+            script.write_text(
+                "import json\n"
+                "print(json.dumps({'status':'SUCCESS','external_writes':0}))\n",
+                encoding="utf-8")
+            case = {"case_id": "DEMO-UNKNOWN-STATUS", "replay": {
+                "mode": "golden_script", "script": "replay.py", "argv": []}}
+            result = casebook.verify_cases([case], root=root, run_root=root / "runs")
+            self.assertEqual({"passed": 0, "failed": 1, "blocked": 0}, result["summary"])
+            self.assertIn("invalid replay status", result["results"][0]["problems"][0])
+
 
 if __name__ == "__main__":
     unittest.main()
