@@ -110,9 +110,119 @@ def _zcode_sessions(root):
             }
 
 
-def build_session_index(kimi_root, zcode_digest_root):
-    rows = list(_kimi_sessions(kimi_root)) + list(_zcode_sessions(zcode_digest_root))
-    return sorted(rows, key=lambda row: (row.get("date") or 0, row["host"], row["id"]))
+def _zcode_db_sessions(db_path):
+    db_path = Path(db_path)
+    if not db_path.is_file():
+        return
+    import sqlite3
+    con = sqlite3.connect(f"file:{db_path}?immutable=1", uri=True)
+    con.row_factory = sqlite3.Row
+    tables = {row[0] for row in con.execute("select name from sqlite_master where type='table'")}
+    if not {"session", "turn_usage"}.issubset(tables):
+        return
+    metrics = {row["session_id"]: row for row in con.execute(
+        "select session_id, count(*) turns, "
+        "sum(case when status in ('failed', 'error') then 1 else 0 end) failed_turns, "
+        "sum(case when status = 'interrupted' then 1 else 0 end) interrupted_turns, "
+        "sum(tool_error_count) tool_errors, sum(tool_call_count) tool_calls "
+        "from turn_usage group by session_id")}
+    for row in con.execute(
+            "select id, parent_id, title, directory, time_created, time_updated, last_outcome "
+            "from session where parent_id is null"):
+        metric = metrics.get(row["id"], {})
+        yield {
+            "host": "zcode",
+            "id": row["id"],
+            "date": row["time_created"],
+            "updated": row["time_updated"],
+            "title": _safe_title(row["title"]),
+            "cwd": row["directory"],
+            "prompt_count": 0,
+            "candidate_products": _products((row["title"] or "") + "\n" + (row["directory"] or "")),
+            "source_ref": f"{db_path}#{row['id']}",
+            "turns": (metric["turns"] if metric else 0),
+            "failed_turns": (metric["failed_turns"] if metric else 0) or 0,
+            "interrupted_turns": (metric["interrupted_turns"] if metric else 0) or 0,
+            "tool_errors": (metric["tool_errors"] if metric else 0) or 0,
+            "tool_calls": (metric["tool_calls"] if metric else 0) or 0,
+            "status": row["last_outcome"],
+        }
+
+
+def _claude_sessions(root):
+    for path in sorted(Path(root).glob("*/*.jsonl")):
+        texts = []
+        cwd = None
+        first = None
+        last = None
+        failed = 0
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            cwd = cwd or event.get("cwd")
+            timestamp = event.get("timestamp")
+            if timestamp:
+                first = first or timestamp
+                last = timestamp
+            if event.get("isApiErrorMessage"):
+                failed += 1
+            if event.get("type") != "user":
+                continue
+            message = event.get("message") or {}
+            content = message.get("content")
+            if isinstance(content, str):
+                text = content.strip()
+            else:
+                text = "\n".join(
+                    part.get("text", "") for part in content or []
+                    if isinstance(part, dict) and part.get("type") == "text").strip()
+            if text and not text.startswith(("Caveat:", "<command", "<system-reminder")):
+                texts.append(text)
+        if not first and not texts:
+            continue
+        text = "\n".join(texts)
+        yield {
+            "host": "claude",
+            "id": path.stem,
+            "date": _timestamp_ms(first),
+            "updated": _timestamp_ms(last),
+            "title": _safe_title(texts[0] if texts else path.stem),
+            "cwd": cwd,
+            "prompt_count": len(texts),
+            "candidate_products": _products(text + "\n" + str(cwd or "")),
+            "source_ref": str(path),
+            "turns": len(texts),
+            "failed_turns": failed,
+            "interrupted_turns": 0,
+        }
+
+
+def build_session_index(kimi_root, zcode_digest_root, claude_root=None, zcode_db_path=None):
+    rows = {}
+    for row in list(_kimi_sessions(kimi_root)) + list(_zcode_sessions(zcode_digest_root)):
+        rows[(row["host"], row["id"])] = row
+    if zcode_db_path:
+        for row in _zcode_db_sessions(zcode_db_path):
+            key = (row["host"], row["id"])
+            if key not in rows:
+                rows[key] = row
+                continue
+            existing = rows[key]
+            existing["related_refs"] = [existing["source_ref"], row["source_ref"]]
+            existing["candidate_products"] = sorted(set(existing["candidate_products"] + row["candidate_products"]))
+            for field in ("turns", "failed_turns", "interrupted_turns", "tool_errors", "tool_calls"):
+                existing[field] = row[field]
+            existing["status"] = row.get("status")
+    if claude_root:
+        for row in _claude_sessions(claude_root):
+            rows[(row["host"], row["id"])] = row
+    return sorted(rows.values(), key=lambda row: (row.get("date") or 0, row["host"], row["id"]))
 
 
 def _timestamp_ms(value):
@@ -354,7 +464,7 @@ def _kimi_work_sessions(root):
         }
 
 
-def build_aux_session_index(codex_root, dsh_root, kimi_work_root=None):
+def build_aux_session_index(codex_root, dsh_root, kimi_work_root=None, dsh_archive_root=None):
     rows = {}
     for row in _codex_file_sessions(codex_root):
         rows[row["id"]] = row
@@ -373,6 +483,9 @@ def build_aux_session_index(codex_root, dsh_root, kimi_work_root=None):
             rows[row["id"]] = row
     for row in _dsh_sessions(dsh_root):
         rows[row["id"]] = row
+    if dsh_archive_root:
+        for row in _dsh_sessions(dsh_archive_root):
+            rows[row["id"]] = row
     if kimi_work_root:
         for row in _kimi_work_sessions(kimi_work_root):
             rows[row["id"]] = row
@@ -414,7 +527,7 @@ def render_incidents(incidents):
     lines = [
         "# OVO 执行问题与解决情况全景",
         "",
-        "> 来源：Codex、DSH、Kimi Code、Kimi Work、ZCode 的逐步执行日志与 turn 指标。只保留问题结构与证据链接，不复制原始 prompt、凭据或联系人。",
+        "> 来源：Codex、DSH、Kimi Code、Kimi Work、ZCode、Claude 的逐步执行日志与 turn 指标。只保留问题结构与证据链接，不复制原始 prompt、凭据或联系人。",
         "",
         "## 状态总览",
         "",
@@ -444,6 +557,43 @@ def render_incidents(incidents):
             "",
         ])
     return "\n".join(lines)
+
+
+def validate_intents(intents, *, cases=()):
+    errors = []
+    required = ("intent_id", "title", "source_sessions", "user_goal", "requested_tasks",
+                "acceptance", "constraints", "test_status", "replay_mode", "sensitivity")
+    case_ids = {case.get("case_id") for case in cases}
+    seen = set()
+    for index, intent in enumerate(intents):
+        label = intent.get("intent_id") or f"row {index + 1}"
+        for key in required:
+            if key not in intent:
+                errors.append(f"{label}: missing {key}")
+        intent_id = intent.get("intent_id")
+        if intent_id in seen:
+            errors.append(f"duplicate intent_id: {intent_id}")
+        seen.add(intent_id)
+        if intent.get("case_id") and intent["case_id"] not in case_ids:
+            errors.append(f"{label}: unknown case_id {intent['case_id']}")
+        if not intent.get("source_sessions"):
+            errors.append(f"{label}: source_sessions must not be empty")
+        for session in intent.get("source_sessions", []):
+            if not session.get("host") or not session.get("id"):
+                errors.append(f"{label}: invalid source session")
+        for field in ("requested_tasks", "acceptance", "constraints"):
+            if not intent.get(field):
+                errors.append(f"{label}: {field} must not be empty")
+        if intent.get("test_status") not in {"covered", "partial", "not_run", "needs_case"}:
+            errors.append(f"{label}: invalid test_status")
+        if intent.get("replay_mode") not in {"task_rerun", "evidence_only", "manual_only", "not_ready"}:
+            errors.append(f"{label}: invalid replay_mode")
+        serialized = json.dumps(intent, ensure_ascii=False)
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(serialized):
+                errors.append(f"{label}: possible credential material")
+                break
+    return errors
 
 
 def _resolve(root, value):
@@ -726,6 +876,13 @@ def replay_case(cases, case_id, *, root, run_root):
             text = path.read_text(encoding="utf-8", errors="replace")
             problems.extend(f"{relative}: missing phrase {phrase!r}" for phrase in phrases if phrase not in text)
         result = {"status": "passed" if not problems else "failed", "verification_type": "evidence_only", "problems": problems}
+    original_status = str(result.get("status") or "")
+    status = {"pass": "passed", "passed": "passed", "fail": "failed",
+              "failed": "failed", "blocked": "blocked"}.get(original_status.lower())
+    if status is None:
+        result.setdefault("problems", []).append("invalid replay status: " + (original_status or "missing"))
+        status = "failed"
+    result["status"] = status
     result["case_id"] = case_id
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -796,13 +953,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="OVO real-task case library")
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("list")
+    sub.add_parser("intents")
     incidents_parser = sub.add_parser("incidents")
     incidents_parser.add_argument("--out")
     index_parser = sub.add_parser("index")
     index_parser.add_argument("--kimi-root", default="/Users/tongxiarui/.kimi-code/sessions")
     index_parser.add_argument("--zcode-digest-root", default="/Users/tongxiarui/.zcode/tmp/memory-review")
+    index_parser.add_argument("--zcode-db", default="/Users/tongxiarui/.zcode/cli/db/db.sqlite")
+    index_parser.add_argument("--claude-root", default=str(Path.home() / ".claude/projects"))
     index_parser.add_argument("--codex-root", default=str(Path.home() / ".codex"))
     index_parser.add_argument("--dsh-root", default=str(Path.home() / ".dsh/sessions"))
+    index_parser.add_argument(
+        "--dsh-archive-root",
+        default=str(Path.home() / "Documents/AI 工作台/codex/tools/deepseek-harness/history/session-archives/dsh-session-archives"))
     index_parser.add_argument(
         "--kimi-work-root",
         default=str(Path.home() / "Library/Application Support/kimi-desktop/kimi-agent"))
@@ -822,8 +985,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     registry = Path(os.environ.get("OVO_CASE_REGISTRY") or _default_registry())
     if args.action == "index":
-        rows = build_session_index(args.kimi_root, args.zcode_digest_root) + build_aux_session_index(
-            args.codex_root, args.dsh_root, args.kimi_work_root)
+        rows = build_session_index(
+            args.kimi_root, args.zcode_digest_root, args.claude_root, args.zcode_db) + build_aux_session_index(
+            args.codex_root, args.dsh_root, args.kimi_work_root, args.dsh_archive_root)
         rows.sort(key=lambda row: (row.get("date") or 0, row["host"], row["id"]))
         write_jsonl(args.out, rows)
         print(json.dumps({"sessions": len(rows), "out": args.out}, ensure_ascii=False))
@@ -841,6 +1005,11 @@ def main(argv=None):
         for case in cases:
             print(f"{case['case_id']}\t{case['product']}\t{case['status']}\t{case['title']}")
         return 0
+    if args.action == "intents":
+        intent_path = registry.parent / "intents.jsonl"
+        for intent in load_jsonl(intent_path) if intent_path.exists() else []:
+            print(f"{intent['intent_id']}\t{intent.get('case_id') or 'unlinked'}\t{intent['test_status']}\t{intent['title']}")
+        return 0
     if args.action == "show":
         case = next((row for row in cases if row["case_id"] == args.case_id), None)
         if case is None:
@@ -853,8 +1022,11 @@ def main(argv=None):
         incident_path = registry.parent / "incidents.jsonl"
         incidents = load_jsonl(incident_path) if incident_path.exists() else []
         incident_errors = validate_incidents(incidents, root=_workspace_root(args, registry), check_paths=not args.skip_paths)
-        print(json.dumps({"cases": len(cases), "errors": errors, "incidents": len(incidents), "incident_errors": incident_errors}, ensure_ascii=False, indent=2))
-        return 2 if errors or incident_errors else 0
+        intent_path = registry.parent / "intents.jsonl"
+        intents = load_jsonl(intent_path) if intent_path.exists() else []
+        intent_errors = validate_intents(intents, cases=cases)
+        print(json.dumps({"cases": len(cases), "errors": errors, "incidents": len(incidents), "incident_errors": incident_errors, "intents": len(intents), "intent_errors": intent_errors}, ensure_ascii=False, indent=2))
+        return 2 if errors or incident_errors or intent_errors else 0
     if args.action == "verify":
         result = verify_cases(cases, root=_workspace_root(args, registry), run_root=_run_root(args, registry))
         print(json.dumps(result, ensure_ascii=False, indent=2))

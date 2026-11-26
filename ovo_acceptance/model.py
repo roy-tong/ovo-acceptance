@@ -33,6 +33,7 @@ RESULT_RECEIPT_SCHEMA = "ovo.result-receipt/1"
 DELEGATED_TASK_SCHEMA = "ovo.delegated-task/1"
 SERVICE_CAPABILITY_SCHEMA = "ovo.service-capability/1"
 EXPERIMENT_SCHEMA = "ovo.experiment-contract/1"
+TASK_RESULT_SCHEMA = "ovo.task-result/1"
 
 KIND_BY_SCHEMA = {
     TASK_SCHEMA: "task",
@@ -45,6 +46,7 @@ KIND_BY_SCHEMA = {
     DELEGATED_TASK_SCHEMA: "delegated_task",
     SERVICE_CAPABILITY_SCHEMA: "service_capability",
     EXPERIMENT_SCHEMA: "experiment",
+    TASK_RESULT_SCHEMA: "task_result",
 }
 SCHEMA_BY_KIND = {kind: schema for schema, kind in KIND_BY_SCHEMA.items()}
 
@@ -59,6 +61,7 @@ SCHEMA_FILES = {
     "delegated_task": "delegated-task.schema.json",
     "service_capability": "service-capability.schema.json",
     "experiment": "experiment-contract.schema.json",
+    "task_result": "task-result.schema.json",
 }
 
 VERDICTS = ("PASS", "FAIL", "UNPROVEN", "NOT_APPLICABLE")
@@ -645,6 +648,34 @@ def validate_experiment_contract(doc: Dict[str, Any]) -> List[Dict[str, str]]:
     return errors
 
 
+def validate_task_result(doc: Dict[str, Any]) -> List[Dict[str, str]]:
+    errors = _schema_errors(doc, "task_result")
+    if doc.get("schema") != TASK_RESULT_SCHEMA:
+        return errors
+    status = doc.get("status")
+    decision_required = doc.get("user_decision_required") is True
+    if decision_required != (status == "needs_decision"):
+        errors.append(_error(
+            "DECISION_FLAG_CONFLICT", "user_decision_required",
+            "user_decision_required must be true exactly for needs_decision"))
+    missing = doc.get("missing_conditions") or []
+    if status == "completed" and any(
+            isinstance(item, dict) and item.get("blocking") is True for item in missing):
+        errors.append(_error(
+            "COMPLETED_WITH_BLOCKER", "missing_conditions",
+            "a completed task cannot retain a blocking missing condition"))
+    if status == "partial_result" and not doc.get("completed") \
+            and not doc.get("evidence_refs"):
+        errors.append(_error(
+            "PARTIAL_WITHOUT_RESULT", "completed",
+            "a partial result needs completed work or evidence references"))
+    if status == "unable_to_complete" and not doc.get("next_actions"):
+        errors.append(_error(
+            "RECOVERY_REQUIRED", "next_actions",
+            "an unable-to-complete task needs an actionable recovery path"))
+    return errors
+
+
 VALIDATORS = {
     "task": validate_task_contract,
     "trace": validate_execution_trace,
@@ -656,6 +687,7 @@ VALIDATORS = {
     "delegated_task": validate_delegated_task,
     "service_capability": validate_service_capability,
     "experiment": validate_experiment_contract,
+    "task_result": validate_task_result,
 }
 
 
@@ -976,7 +1008,7 @@ __all__ = [
     "validate_escalation_record", "validate_agent_e2e_run",
     "validate_result_receipt", "validate_delegated_task",
     "validate_service_capability", "experiment_design_hash",
-    "validate_experiment_contract",
+    "validate_experiment_contract", "validate_task_result",
     "validate_document", "validate_bundle",
     "observation_scope_note",
 ]
