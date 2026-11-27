@@ -24,7 +24,7 @@ REA 和 Craft Anything 的经验值得借，但它们解决的是「怎么逆向
 | `contracts/acceptance-record.schema.json` | 谁、在什么时候、按哪条标准、给了什么判定 | `PASS` 必须引用账本里的证据；`FAIL` 必须说明失败点；`UNPROVEN` 是一种判定，不是通过 |
 | `contracts/escalation-record.schema.json` | 失败或无法证明时，谁做了什么决定 | `decision` 四选一：`accept_with_gap` / `rework` / `stop` / `external_review`；`accept_with_gap` 仍要有下一步动作 |
 
-独立 Agent 真实任务另用 `contracts/agent-e2e-run.schema.json`：九类预登记任务见 `e2e/cases.json`，每案要求产品与通用 Agent 基线各跑一次全新会话。合成输入、缺人工验收、缺 Growovo 外部回执或带开放缺陷的记录不能标成 `REAL_SUCCESS`；当前矩阵仍为 `NOT_RUN`。
+独立 Agent 真实任务另用 `contracts/agent-e2e-run.schema.json`：九类预登记任务见 `e2e/cases.json`，每案要求产品与通用 Agent 基线各跑一次全新会话。合成输入、缺人工验收、缺 Growovo 外部回执或带开放缺陷的记录不能标成 `REAL_SUCCESS`；2026-11-27 已完成 18 个隔离会话，当前矩阵为 `REVIEW_REQUIRED`，G-E2E-03 只是待人工接受的成功候选，其他案例为接管、合理拒绝或错误交付。
 
 产品行为观察不是单独一套 schema，而是 `evidence-ledger` 里 `kind: "observation"` 的条目，额外要求：
 

@@ -1,8 +1,10 @@
 {
   "schema": "ovo.agent-e2e-cases/1",
-  "version": "2026-11-22",
-  "status": "NOT_RUN",
-  "evidence_boundary": "Existing 2026-11-20 sessions used synthetic fixtures and dry-run external actions. They remain useful defect evidence but do not complete these real-task cases.",
+  "version": "2026-11-27",
+  "status": "REVIEW_REQUIRED",
+  "last_run": "2026-11-27",
+  "review_pack": "ai输出/测试与验收/OVO-九类Agent-E2E-20261127/README.md",
+  "evidence_boundary": "18 fresh product/baseline sessions ran locally on 2026-11-27 with isolated HOME/CODEX_HOME and no external writes. Eight pairs had the same outcome, one product arm was worse, and one pair produced a REAL_SUCCESS candidate. No named human acceptance exists, so the matrix is REVIEW_REQUIRED, not passed.",
   "run_rule": "Run every case in two fresh sessions: product and baseline. Give only the natural-language intent and user-owned inputs; do not provide commands, expected tool calls or expected answers.",
   "cases": [
     {

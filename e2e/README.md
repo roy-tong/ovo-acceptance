@@ -1,6 +1,6 @@
 # 独立 Agent 真实任务验收
 
-`cases.json` 预登记 Askovo、Growovo、Verovo 各三类核心任务。当前状态是 `NOT_RUN`；2026-11-20 的 18 场会话使用合成输入和 dry-run，保留为缺陷证据，不计入这九类真实任务通过数。
+`cases.json` 预登记 Askovo、Growovo、Verovo 各三类核心任务。2026-11-27 已在隔离 `HOME`/`CODEX_HOME` 中完成 18 个全新产品/基线会话，产品组 9/9 实际执行 OVO，基线组没有 OVO 命令，外部写为 0。当前状态是 `REVIEW_REQUIRED`：8 对结果相同，1 个产品臂更差，G-E2E-03 为待人工接受的 `REAL_SUCCESS` 候选。完整审查见 [`ai输出/测试与验收/OVO-九类Agent-E2E-20261127`](../../../ai输出/测试与验收/OVO-九类Agent-E2E-20261127/README.md)；人工验收前不能称为九案全部通过。
 
 每个 `case_id` 至少运行两次全新会话：
 

@@ -97,7 +97,9 @@ class AgentE2ECaseMatrixTest(unittest.TestCase):
         for product in ("askovo", "growovo", "verovo"):
             self.assertEqual(3, len([case for case in cases if case["product"] == product]))
         self.assertIn("product and baseline", matrix["run_rule"])
-        self.assertEqual("NOT_RUN", matrix["status"])
+        self.assertEqual("REVIEW_REQUIRED", matrix["status"])
+        self.assertEqual("2026-11-27", matrix["last_run"])
+        self.assertIn("九类Agent-E2E-20261127", matrix["review_pack"])
 
     def test_growovo_cases_require_external_receipts(self):
         matrix = json.loads((ROOT / "e2e" / "cases.json").read_text(encoding="utf-8"))
