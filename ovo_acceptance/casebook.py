@@ -605,7 +605,7 @@ def _is_external_ref(value) -> bool:
     return bool(re.match(r"^https?://", str(value or ""), re.I))
 
 
-def validate_cases(cases, *, root, check_paths=True):
+def validate_cases(cases, *, root, check_paths=True, require_scene_case=False):
     errors = []
     required = ("case_id", "product", "title", "status", "time_window", "goal", "source_sessions", "artifacts", "outcome", "replay", "sensitivity")
     seen = set()
@@ -651,6 +651,43 @@ def validate_cases(cases, *, root, check_paths=True):
             if pattern.search(serialized):
                 errors.append(f"{label}: possible credential material")
                 break
+        if require_scene_case:
+            errors.extend(validate_scene_case(case))
+    return errors
+
+
+def validate_scene_case(case):
+    errors = []
+    label = case.get("case_id") or "unknown case"
+    required = {
+        "scene": ("trigger", "environment", "task_context"),
+        "user": ("role", "state", "decision_role"),
+        "pain": ("current_substitute", "friction_cost", "consequence"),
+        "need": ("desired_outcome", "constraints", "measure"),
+        "feature": ("capability", "acceptance_conditions", "alternatives_considered"),
+        "product": ("form", "scope", "non_goals", "acceptance_criteria"),
+        "business": ("market_definition", "geographies", "time_window", "included_markets",
+                     "excluded_markets", "target_segment", "payer", "positioning", "revenue_model",
+                     "pricing_hypothesis", "cost_drivers", "unit_economics_inputs", "success_metrics", "gate"),
+        "evidence": ("data_basis", "user_voices"),
+        "acceptance": ("criteria", "constraints"),
+        "provenance": ("status", "notes"),
+    }
+    scene_case = case.get("scene_case")
+    if not isinstance(scene_case, dict):
+        return [f"{label}: missing scene_case"]
+    for section, fields in required.items():
+        value = scene_case.get(section)
+        if not isinstance(value, dict):
+            errors.append(f"{label}: missing {section}")
+            continue
+        for field in fields:
+            item = value.get(field)
+            if item is None or item == "" or item == [] or item == {}:
+                errors.append(f"{label}: missing {section}.{field}")
+    for index, unknown in enumerate(scene_case.get("unknowns") or []):
+        if not unknown.get("field") or not unknown.get("reason"):
+            errors.append(f"{label}: unknown reason required at unknowns[{index}]")
     return errors
 
 
@@ -1018,11 +1055,11 @@ def main(argv=None):
         print(json.dumps(case, ensure_ascii=False, indent=2))
         return 0
     if args.action == "validate":
-        errors = validate_cases(cases, root=_workspace_root(args, registry), check_paths=not args.skip_paths)
+        intent_path = registry.parent / "intents.jsonl"
+        errors = validate_cases(cases, root=_workspace_root(args, registry), check_paths=not args.skip_paths, require_scene_case=intent_path.exists())
         incident_path = registry.parent / "incidents.jsonl"
         incidents = load_jsonl(incident_path) if incident_path.exists() else []
         incident_errors = validate_incidents(incidents, root=_workspace_root(args, registry), check_paths=not args.skip_paths)
-        intent_path = registry.parent / "intents.jsonl"
         intents = load_jsonl(intent_path) if intent_path.exists() else []
         intent_errors = validate_intents(intents, cases=cases)
         print(json.dumps({"cases": len(cases), "errors": errors, "incidents": len(incidents), "incident_errors": incident_errors, "intents": len(intents), "intent_errors": intent_errors}, ensure_ascii=False, indent=2))

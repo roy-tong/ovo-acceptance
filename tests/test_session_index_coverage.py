@@ -197,6 +197,29 @@ class IntentContractTests(unittest.TestCase):
         self.assertTrue(any("unknown case_id" in error for error in casebook.validate_intents([unknown], cases=cases)))
 
 
+class SceneCaseCompletenessTests(unittest.TestCase):
+    def test_requires_full_seven_node_context_and_unknown_reasons(self) -> None:
+        scene_case = {
+            "scene": {"trigger": "月度关账", "environment": "企业 AI 采购", "task_context": "付款前复核"},
+            "user": {"role": "FinOps", "state": "已有账单", "decision_role": "决定是否付款"},
+            "pain": {"current_substitute": "手工对账", "friction_cost": "逐行核对", "consequence": "可能错付"},
+            "need": {"desired_outcome": "知道哪些金额可证明", "constraints": "缺证不猜", "measure": "覆盖率和未决项"},
+            "feature": {"capability": "逐行复算", "acceptance_conditions": ["金额和证据可回链"], "alternatives_considered": ["人工对账"]},
+            "product": {"form": "本地报告", "scope": "一个账期", "non_goals": ["不自动付款"], "acceptance_criteria": ["差异可读"]},
+            "business": {"market_definition": "AI 采购账期", "geographies": "未指定", "time_window": "一个账期", "included_markets": "AI 服务买方", "excluded_markets": "个人报销", "target_segment": "FinOps", "payer": "企业买方", "positioning": "独立复核", "revenue_model": "按账期", "pricing_hypothesis": "未知", "cost_drivers": "人工复核", "unit_economics_inputs": "未知", "success_metrics": "下一次复核", "gate": "未验证不扩量"},
+            "evidence": {"data_basis": "原始账单和会话", "user_voices": {"status": "unavailable", "reason": "原始 prompt 未复制"}},
+            "acceptance": {"criteria": ["金额可复核"], "constraints": ["不执行付款"]},
+            "provenance": {"status": "mixed", "notes": "任务真实，商业效果未知"},
+            "unknowns": [{"field": "business.pricing_hypothesis", "reason": "未获得报价证据"}],
+        }
+        case = {"case_id": "DEMO", "scene_case": scene_case}
+        self.assertEqual([], casebook.validate_scene_case(case))
+        missing = dict(case, scene_case=dict(scene_case, pain={}))
+        self.assertTrue(any("pain.current_substitute" in error for error in casebook.validate_scene_case(missing)))
+        bad_unknown = dict(case, scene_case=dict(scene_case, unknowns=[{"field": "business.payer"}]))
+        self.assertTrue(any("unknown reason" in error for error in casebook.validate_scene_case(bad_unknown)))
+
+
 class IncidentEvidenceTests(unittest.TestCase):
     def test_external_url_is_not_a_missing_local_path(self) -> None:
         incident = {
